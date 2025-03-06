@@ -1,0 +1,11 @@
+
+
+
+Cant get modality introduction for next:
+- Next requires that there is a next in the context
+  + Current setup does not support this
+    * Specifically, we must prove: `modality_mixin_emp : emp ⊢ M emp;`
+
+Cannot use iMod for eventually/next:
+- Tactic (and typeclasses) do not support updating the proof context
+  + We would need to throw away everything else

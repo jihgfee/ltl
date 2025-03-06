@@ -1,0 +1,70 @@
+
+
+LTL next:
+- Semantics: There exists a next step, and the proposition holds at the next step
+  OR
+- Semantics: If there exists a next step, the proposition holds at the next step
+  OR
+- Semantics: If there exists a next step, the proposition holds at the next step
+
+Sep logic later:
+- Semantics: The proposition holds at the next step, or vacuously if no more steps
+
+
+
+
+HP: ▹ P n -* P n
+--------------
+   P n
+
+Induction on n.
+
+Case n = 0:
+
+HP: True -* P 0
+--------------
+   P 0
+
+apply HP.
+
+Qed
+
+
+Case n = S m:
+
+IH: (▹ P m -* P m) -* P m
+HP: P m -* P n
+--------------
+   P n
+
+apply HP
+
+IH: (▹ P m -* P m) -* P m
+--------------
+   P m
+
+apply IH
+
+--------------
+▹ P m -* P m
+
+
+
+
+--------------------- induction n
+   ▹ P -* P |-_n P
+
+
+Case n = 0:
+
+True -* P n |- P n
+
+QED
+
+
+Case n = S m:
+
+P (m-1) -* P m |- P m
+-----------------
+P m -* P n |- P n
+
