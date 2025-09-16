@@ -1280,4 +1280,30 @@ Section ltl_proofmode.
     (□ (P ∧ Q)) ∧ ○ P ∧ Q ⊢ □ Q.
   Proof. iIntros "[[HP HQ] [HP' HQ']]". iIntros "!>". by iMod "HQ". Qed.
 
+  Lemma running_example (P : ltl_prop) :
+    □ (P → ○○P) ∧ P ⊢ □ ◊ P.
+  Proof.
+    iIntros "[HP1 HP2]".
+    iAssert (□ (ltl_or P (○P)))%ltl with "[HP1 HP2]" as "H".
+    { iAssert (□ (ltl_or P (○ P) ∧ □ (P → ○ ○ P)))%I with "[-]" as "[H1 H2]"; [|done].
+      iApply (ltl_always_intro with "[HP1 HP2]"); [done| |by iFrame].
+      iIntros "[HP' #HP1]".
+      iDestruct "HP'" as "[HP'|HP']".
+      + iAssert (○ ○ P)%ltl with "[HP']" as "HP'".
+        { rewrite ltl_always_elim. by iApply "HP1". }
+        iCombine "HP' HP1" as "HP'".
+        iModNext with "HP'" as "[HP' HP1]".
+        iFrame.
+      + iCombine "HP' HP1" as "HP'".
+        iModNext with "HP'" as "[HP' HP1]".
+        iFrame. }
+    iIntros "!>".
+    rewrite ltl_always_elim.
+    iDestruct "H" as "[H|H]".
+    - by iApply ltl_eventually_intro.
+    - iApply ltl_next_eventually.
+      iModNext with "H".
+      by iApply ltl_eventually_intro.
+  Qed.
+
 End ltl_proofmode.
