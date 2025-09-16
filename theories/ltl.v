@@ -1280,23 +1280,38 @@ Section ltl_proofmode.
     (□ (P ∧ Q)) ∧ ○ P ∧ Q ⊢ □ Q.
   Proof. iIntros "[[HP HQ] [HP' HQ']]". iIntros "!>". by iMod "HQ". Qed.
 
+  Lemma ltl_always_intro_alt (P Q R : ltl_prop) :
+    (P ⊢ □ R) → (P ⊢ Q) → (□ R ∧ Q ⊢ (○ Q)) → (P ⊢ (□ Q)).
+  Proof.
+    intros HPR HPQ IHQ.
+    iIntros "HP".
+    iAssert (□ (ltl_and (□ R) Q))%ltl with "[HP]" as "H"; last first.
+    { iDestruct "H" as "[H1 H2]". done. }
+    iApply (ltl_always_intro with "HP").
+    - iIntros "#HP".
+      iDestruct (HPR with "HP") as "HR".
+      iDestruct (HPQ with "HP") as "HQ".
+      iSplit; done.
+    - iIntros "[#HR HQ]". iDestruct (IHQ with "[$HR $HQ]") as "H".
+      iCombine "H" "HR" as "H".
+      iModNext with "H" as "[HQ HR]".
+      iFrame.
+  Qed.
+
   Lemma running_example (P : ltl_prop) :
     □ (P → ○○P) ∧ P ⊢ □ ◊ P.
   Proof.
     iIntros "[HP1 HP2]".
     iAssert (□ (ltl_or P (○P)))%ltl with "[HP1 HP2]" as "H".
-    { iAssert (□ (ltl_or P (○ P) ∧ □ (P → ○ ○ P)))%I with "[-]" as "[H1 H2]"; [|done].
-      iApply (ltl_always_intro with "[HP1 HP2]"); [done| |by iFrame].
-      iIntros "[HP' #HP1]".
+    { iApply (ltl_always_intro_alt (ltl_and (□ (P → ○ ○ P)) P) _ (P → ○ ○ P));
+        [by iIntros "[$ _]"| | |by iFrame].
+      { iIntros "[_ HP]". by iFrame. }
+      iIntros "[#HP1 HP']".
       iDestruct "HP'" as "[HP'|HP']".
       + iAssert (○ ○ P)%ltl with "[HP']" as "HP'".
         { rewrite ltl_always_elim. by iApply "HP1". }
-        iCombine "HP' HP1" as "HP'".
-        iModNext with "HP'" as "[HP' HP1]".
-        iFrame.
-      + iCombine "HP' HP1" as "HP'".
-        iModNext with "HP'" as "[HP' HP1]".
-        iFrame. }
+        iModNext with "HP'" as "$".
+      + iModNext with "HP'" as "$". }
     iIntros "!>".
     rewrite ltl_always_elim.
     iDestruct "H" as "[H|H]".
