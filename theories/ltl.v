@@ -666,11 +666,14 @@ Section ltl_lemmas.
     P ⊢ ◊ P.
   Proof. ltl_unseal. by constructor; constructor 1. Qed.
 
-  Lemma ltl_eventually_idemp (P : ltl_prop) :
-    (◊◊P) ⊢ (◊P).
+  Lemma ltl_eventually_next_intro (P : ltl_prop) :
+    (○ P) ⊢ (◊ P).
   Proof.
-    constructor. ltl_unseal. intros tr Htr. induction Htr; [done|].
-    apply ltl_eventually_cons. done.
+    constructor. ltl_unseal. intros tr Hnext.
+    induction Hnext.
+    { destruct tr; [inversion H; naive_solver|].
+      constructor 2. constructor. eapply (ltl_next_elim _ s ℓ). ltl_unseal. rewrite /ltl_next_def. simpl.
+      exists tr. simpl in *. inversion H. simplify_eq. done. }
   Qed.
   
   Lemma ltl_eventuallyI_alt (P : ltl_prop) tr :
@@ -715,6 +718,20 @@ Section ltl_lemmas.
       by apply ltl_eventually_intro.
   Qed.
 
+  Lemma ltl_eventually_idemp (P : ltl_prop) :
+    (◊◊P) ⊣⊢ (◊P).
+  Proof.
+    constructor.
+    split.
+    - ltl_unseal. intros Htr. induction Htr; [done|].
+      apply ltl_eventually_cons. done.
+    - rewrite ->!ltl_eventuallyI.
+      intros [tr' [Htr' HP]].
+      exists tr'. split; [done|].
+      rewrite ->!ltl_eventuallyI.
+      exists tr'. split; [apply trace_suffix_of_refl|done].
+  Qed.
+
   Lemma ltl_eventually_and (P Q : ltl_prop) :
     (◊ (P ∧ Q)) ⊢ (◊ P) ∧ (◊ Q).
   Proof.
@@ -751,11 +768,9 @@ Section ltl_lemmas.
   Lemma ltl_eventually_next (P : ltl_prop) :
     (◊ ○ P) ⊢ (◊ P).
   Proof.
-    constructor. ltl_unseal. intros tr Hnext.
-    induction Hnext.
-    { destruct tr; [inversion H; naive_solver|].
-      constructor 2. constructor. eapply ltl_next_elim. ltl_unseal. done. }
-    constructor 2. apply IHHnext.
+    rewrite <-(ltl_eventually_idemp P).
+    apply ltl_eventually_mono.
+    apply ltl_eventually_next_intro.
   Qed.
 
   Lemma trace_suffix_of_cons_l_inv s l (tr tr' : trace S L) :
@@ -831,22 +846,6 @@ Section ltl_lemmas.
     revert Htr'. ltl_unseal. by constructor 2.
   Qed.
 
-  Lemma ltl_always_idemp (P : ltl_prop) :
-    (□ P) ⊢ (□ □ P).
-  Proof.
-    constructor. ltl_unseal. rewrite /ltl_always_def. unseal.
-    rewrite /ltl_impl_def /ltl_pure_def.
-    ltl_unseal.
-    intros tr Htr Htr'.
-    induction Htr'; [by apply H|].
-    apply IHHtr'.
-    pose proof ltl_always_cons.
-    revert H. ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def.
-    ltl_unseal.
-    intros H.
-    by eapply H.
-  Qed.
-
   Lemma ltl_always_elim (P : ltl_prop) :
     (□P) ⊢ P.
   Proof.
@@ -859,6 +858,25 @@ Section ltl_lemmas.
     revert HP H. unseal. intros HP H.
     exfalso.
     apply H. apply HP.
+  Qed.
+
+  Lemma ltl_always_idemp (P : ltl_prop) :
+    (□ P) ⊣⊢ (□ □ P).
+  Proof.
+    constructor.
+    split.
+    - ltl_unseal. rewrite /ltl_always_def. unseal.
+      rewrite /ltl_impl_def /ltl_pure_def.
+      ltl_unseal.
+      intros Htr Htr'.
+      induction Htr'; [by apply H|].
+      apply IHHtr'.
+      pose proof ltl_always_cons.
+      revert H. ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def.
+      ltl_unseal.
+      intros H.
+      by eapply H.
+    - apply ltl_always_elim.
   Qed.
 
   Lemma ltl_always_mono (P Q : ltl_prop) :
@@ -930,12 +948,7 @@ Section ltl_lemmas.
 
   Lemma ltl_always_eventually (P : ltl_prop) :
     (□ P) ⊢ (◊ P).
-  Proof.
-    constructor. ltl_unseal.
-    intros tr Halways. unseal_apply ltl_eventuallyI_alt. exists tr.
-    split; [apply trace_suffix_of_refl|]. unseal_apply ltl_eventually_intro.
-    apply ltl_always_elim. by ltl_unseal.
-  Qed.
+  Proof. rewrite -ltl_eventually_intro. apply ltl_always_elim. Qed.
 
   Lemma ltl_always_intro (P Q : ltl_prop) :
     (P ⊢ Q) → (Q ⊢ (○ Q)) → (P ⊢ (□ Q)).
@@ -1198,7 +1211,7 @@ Section ltl_proofmode.
   Proof.
     rewrite /IntoAlways. intros p.
     destruct p; simpl; [rewrite bi_intuitionistically_id|];
-      apply ltl_always_idemp.
+      by rewrite <-ltl_always_idemp.
   Qed.
 
   Lemma modality_always_mixin : modality_mixin (ltl_always)
