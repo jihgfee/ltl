@@ -59,14 +59,10 @@ Section trace.
 
 End trace.
 
-Declare Scope ltl_scope.
-Delimit Scope ltl_scope with ltl.
-Bind Scope ltl_scope with trace.
-
 Definition ltl_prop S L := trace S L → Prop.
 
-Bind Scope ltl_scope with ltl_prop.
 Bind Scope bi_scope with ltl_prop.
+Bind Scope bi_scope with trace.
 
 Section cofe.
   Context {S L : Type}.
@@ -555,11 +551,6 @@ Section ltl_primitives.
 
 End ltl_primitives.
 
-Notation "○ P" := (ltl_next P%ltl) (at level 20, right associativity) : ltl_scope.
-Notation "□ P" := (ltl_always P%ltl) (at level 20, right associativity) : ltl_scope.
-Notation "◊ P" := (ltl_eventually P%ltl) (at level 20, right associativity) : ltl_scope.
-Notation "↓ P" := (ltl_now P) (at level 20, right associativity) : ltl_scope.
-
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 Notation "□ P" := (ltl_always P%I) (at level 20, right associativity) : bi_scope.
 Notation "◊ P" := (ltl_eventually P%I) (at level 20, right associativity) : bi_scope.
@@ -627,11 +618,11 @@ Section ltl_lemmas.
   (** ltl_next lemmas *)
 
   Lemma ltl_next_intro (P : ltl_prop) s l (tr : trace S L) :
-    P tr → (○ P)%ltl (s -[l]-> tr).
+    P tr → (○ P)%I (s -[l]-> tr).
   Proof. intros ?. ltl_unseal. exists tr. simpl in *. by simplify_eq. Qed.
 
   Lemma ltl_next_elim (P : ltl_prop) s l tr :
-    (○ P)%ltl (s -[l]-> tr) → P tr.
+    (○ P)%I (s -[l]-> tr) → P tr.
   Proof. ltl_unseal. inversion 1. naive_solver. Qed.
 
   Lemma ltl_next_mono (P Q : ltl_prop) :
@@ -677,7 +668,7 @@ Section ltl_lemmas.
   Qed.
   
   Lemma ltl_eventuallyI_alt (P : ltl_prop) tr :
-    (◊ P)%ltl tr ↔ (∃ tr', trace_suffix_of tr' tr ∧ (◊ P)%ltl tr').
+    (◊ P)%I tr ↔ (∃ tr', trace_suffix_of tr' tr ∧ (◊ P)%I tr').
   Proof.
     ltl_unseal.
     split.
@@ -702,7 +693,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_eventuallyI (P : ltl_prop) tr :
-    (◊ P)%ltl tr ↔ (∃ tr', trace_suffix_of tr' tr ∧ P tr').
+    (◊ P)%I tr ↔ (∃ tr', trace_suffix_of tr' tr ∧ P tr').
   Proof.
     split.
     - ltl_unseal.
@@ -756,7 +747,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_eventually_elim_l (P Q : ltl_prop) :
-    (∀ tr, P tr → (◊ Q)%ltl tr) → (∀ tr, (◊P)%ltl tr → (◊ Q)%ltl tr).
+    (∀ tr, P tr → (◊ Q)%I tr) → (∀ tr, (◊P)%I tr → (◊ Q)%I tr).
   Proof.
     intros HPQ tr HP.
     apply ltl_eventually_idemp.
@@ -833,13 +824,13 @@ Section ltl_lemmas.
   Proof. rewrite -{2}ltl_eventually_next ltl_eventually_next_comm. done. Qed.
 
   Lemma ltl_eventually_suffix_of (P : ltl_prop) tr1 tr2 :
-    trace_suffix_of tr1 tr2 → (◊P)%ltl tr1 → (◊P)%ltl tr2.
+    trace_suffix_of tr1 tr2 → (◊P)%I tr1 → (◊P)%I tr2.
   Proof. intros Hsuffix HP. apply ltl_eventuallyI_alt. by exists tr1. Qed.
     
   (** ltl_always lemmas *)
 
   Lemma ltl_always_cons (P : ltl_prop) s l (tr : trace S L) :
-    (□ P)%ltl (s -[l]-> tr) → (□ P)%ltl tr.
+    (□ P)%I (s -[l]-> tr) → (□ P)%I tr.
   Proof.
     ltl_unseal. rewrite /ltl_always_def. unseal.
     intros Htr Htr'. apply Htr. clear Htr. 
@@ -890,7 +881,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_alwaysI_alt (P : ltl_prop) tr :
-    (□P)%ltl tr ↔ (∀ tr', trace_suffix_of tr' tr → (□ P)%ltl tr').
+    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → (□ P)%I tr').
   Proof.
     ltl_unseal. rewrite /ltl_always_def. unseal.
     rewrite /ltl_impl_def /ltl_pure_def.
@@ -913,11 +904,11 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_always_suffix_of (P : ltl_prop) tr1 tr2 :
-    trace_suffix_of tr2 tr1 → (□P)%ltl tr1 → (□P)%ltl tr2.
+    trace_suffix_of tr2 tr1 → (□P)%I tr1 → (□P)%I tr2.
   Proof. rewrite (ltl_alwaysI_alt _ tr1). intros Hsuffix HP. by eapply HP. Qed.
 
   Lemma ltl_alwaysI (P : ltl_prop) tr :
-    (□P)%ltl tr ↔ (∀ tr', trace_suffix_of tr' tr → P tr').
+    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → P tr').
   Proof.
     split.
     - intros HP tr' Hsuff. rewrite ltl_alwaysI_alt in HP.
@@ -928,7 +919,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_always_and (P Q : ltl_prop) :
-    (□ (P ∧ Q))%ltl ⊣⊢ (□ P) ∧ (□ Q).
+    (□ (P ∧ Q))%I ⊣⊢ (□ P) ∧ (□ Q).
   Proof.
     constructor.
     intros tr. rewrite !ltl_alwaysI. unseal.
@@ -966,7 +957,7 @@ Section ltl_lemmas.
     rewrite after_sum' in Hsuff.
     destruct (after n (s -[ ℓ ]-> tr)) eqn:Heqn; [|done].
     eapply IHn in HP; [|done].
-    assert ((○ Q)%ltl t) as Hnext.
+    assert ((○ Q)%I t) as Hnext.
     { by apply IHQ. }
     revert Hnext. ltl_unseal. intros Hnext.
     destruct Hnext as [? [H' H'']].
@@ -1038,7 +1029,7 @@ Section ltl_proofmode.
   Import ltl_prop.
   
   Global Instance into_wand_next p (P Q R : ltl_prop) :
-    IntoWand p p R P Q → IntoWand p p (○ R)%ltl (○ P)%ltl (○ Q)%ltl.
+    IntoWand p p R P Q → IntoWand p p (○ R)%I (○ P)%I (○ Q)%I.
   Proof. 
     rewrite /IntoWand.
     destruct p; simpl; [rewrite !bi_intuitionistically_id|].
@@ -1056,7 +1047,7 @@ Section ltl_proofmode.
       iIntros "[HPQ HP]". by iApply "HPQ".
   Qed.
   Global Instance into_wand_always p (P Q R : ltl_prop) :
-    IntoWand p p R P Q → IntoWand p p (□ R)%ltl (□ P)%ltl (□ Q)%ltl.
+    IntoWand p p R P Q → IntoWand p p (□ R)%I (□ P)%I (□ Q)%I.
   Proof.
     rewrite /IntoWand.
     destruct p; simpl; [rewrite !bi_intuitionistically_id|].
@@ -1080,7 +1071,7 @@ Section ltl_proofmode.
 
   Global Instance into_and_always b (P Q1 Q2 : ltl_prop) :
     IntoAnd b P Q1 Q2 →
-    IntoAnd b (□ P)%ltl (□ Q1)%ltl (□ Q2)%ltl.
+    IntoAnd b (□ P)%I (□ Q1)%I (□ Q2)%I.
   Proof.
     destruct b; simpl.
     - rewrite /IntoAnd. simpl. rewrite !bi_intuitionistically_id.
@@ -1095,7 +1086,7 @@ Section ltl_proofmode.
 
   Global Instance into_sep_always (P Q1 Q2 : ltl_prop) :
     IntoSep P Q1 Q2 →
-    IntoSep (□ P)%ltl (□ Q1)%ltl (□ Q2)%ltl.
+    IntoSep (□ P)%I (□ Q1)%I (□ Q2)%I.
   Proof.
     rewrite /IntoSep.
     simpl. rewrite !bi_sep_and.
@@ -1106,7 +1097,7 @@ Section ltl_proofmode.
 
   Global Instance into_and_eventually b (P Q1 Q2 : ltl_prop) :
     IntoAnd b P Q1 Q2 →
-    IntoAnd b (◊ P)%ltl (◊ Q1)%ltl (◊ Q2)%ltl.
+    IntoAnd b (◊ P)%I (◊ Q1)%I (◊ Q2)%I.
   Proof.
     destruct b; simpl.
     - rewrite /IntoAnd. simpl. rewrite !bi_intuitionistically_id.
@@ -1121,7 +1112,7 @@ Section ltl_proofmode.
 
   Global Instance into_sep_eventually (P Q1 Q2 : ltl_prop) :
     IntoSep P Q1 Q2 →
-    IntoSep (◊ P)%ltl (◊ Q1)%ltl (◊ Q2)%ltl.
+    IntoSep (◊ P)%I (◊ Q1)%I (◊ Q2)%I.
   Proof.
     rewrite /IntoSep.
     simpl. 
@@ -1132,7 +1123,7 @@ Section ltl_proofmode.
   Qed.
 
   Global Instance elim_modal_always p (P Q : ltl_prop) :
-    @ElimModal ltlI True%type p p (□ P)%ltl P Q Q.
+    @ElimModal ltlI True%type p p (□ P)%I P Q Q.
   Proof.
     rewrite /ElimModal; destruct p; simpl; [rewrite !bi_intuitionistically_id|].
     - intros _. iIntros "[HP HPQ]". iApply "HPQ". by rewrite ltl_always_elim.
@@ -1298,7 +1289,7 @@ Section ltl_proofmode.
   Proof.
     intros HPR HPQ IHQ.
     iIntros "HP".
-    iAssert (□ (ltl_and (□ R) Q))%ltl with "[HP]" as "H"; last first.
+    iAssert (□ (ltl_and (□ R) Q))%I with "[HP]" as "H"; last first.
     { iDestruct "H" as "[H1 H2]". done. }
     iApply (ltl_always_intro with "HP").
     - iIntros "#HP".
@@ -1311,20 +1302,28 @@ Section ltl_proofmode.
       iFrame.
   Qed.
 
+  Lemma ltl_always_introI (P : ltl_prop) :
+     ⊢ P → (□ (P → (○ P))) → □ P.
+  Proof.
+    iIntros "HP HQ".
+    iApply (ltl_always_intro_alt (P ∧ □ (P → ○ P)) _ (P → ○ P)).
+    { iIntros "[_ $]". }
+    { iIntros "[$ _]". }
+    { iIntros "[H1 H2]".
+      rewrite ltl_always_elim. by iApply "H1". }
+    iFrame.
+  Qed.
+
   Lemma running_example (P : ltl_prop) :
     □ (P → ○○P) ∧ P ⊢ □ ◊ P.
   Proof.
     iIntros "[HP1 HP2]".
-    iAssert (□ (ltl_or P (○P)))%ltl with "[HP1 HP2]" as "H".
-    { iApply (ltl_always_intro_alt (ltl_and (□ (P → ○ ○ P)) P) _ (P → ○ ○ P));
-        [by iIntros "[$ _]"| | |by iFrame].
-      { iIntros "[_ HP]". by iFrame. }
-      iIntros "[#HP1 HP']".
-      iDestruct "HP'" as "[HP'|HP']".
-      + iAssert (○ ○ P)%ltl with "[HP']" as "HP'".
-        { rewrite ltl_always_elim. by iApply "HP1". }
-        iModNext with "HP'" as "$".
-      + iModNext with "HP'" as "$". }
+    iAssert (□ (P ∨ (○P)))%I with "[HP1 HP2]" as "H".
+    { iApply (ltl_always_introI with "[HP2]").
+      { by iLeft. }
+      iIntros "!> [HP|HP]".
+      + rewrite ltl_always_elim. iDestruct ("HP1" with "HP") as "HP". iModNext with "HP" as "$".
+      + iModNext with "HP" as "$". }
     iIntros "!>".
     rewrite ltl_always_elim.
     iDestruct "H" as "[H|H]".
