@@ -529,9 +529,14 @@ Section ltl_primitives.
   Local Definition ltl_next_unseal :
     @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
 
-  Inductive ltl_until P Q : ltl_prop :=
-  | ltl_until_here tr : Q tr -> ltl_until P Q tr
-  | ltl_until_cons s l tr : P (s -[l]-> tr) → ltl_until P Q tr → ltl_until P Q (s -[l]-> tr).
+  Inductive ltl_until_def P Q : ltl_prop :=
+  | ltl_until_here tr : Q tr -> ltl_until_def P Q tr
+  | ltl_until_cons s l tr : P (s -[l]-> tr) → ltl_until_def P Q tr → ltl_until_def P Q (s -[l]-> tr).
+  Local Definition ltl_until_aux : seal (@ltl_until_def).
+  Proof. by eexists. Qed.
+  Definition ltl_until := unseal ltl_until_aux.
+  Local Definition ltl_until_unseal :
+    @ltl_until = @ltl_until_def := seal_eq ltl_until_aux.
 
   Inductive ltl_eventually_def P : ltl_prop :=
   | ltl_eventually_here tr : P tr -> ltl_eventually_def P tr
@@ -554,6 +559,7 @@ End ltl_primitives.
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 Notation "□ P" := (ltl_always P%I) (at level 20, right associativity) : bi_scope.
 Notation "◊ P" := (ltl_eventually P%I) (at level 20, right associativity) : bi_scope.
+Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
 Notation "↓ P" := (ltl_now P) (at level 20, right associativity) : bi_scope.
 
 Notation "□^ P" := (bi_intuitionistically P) (at level 20, right associativity).
@@ -570,7 +576,7 @@ Section ltl_lemmas.
        @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
          @ltl_later_unseal S L, @ltl_internal_eq_unseal S L,
     @ltl_next_unseal S L, @ltl_now_unseal S L, @ltl_always_unseal S L,
-    @ltl_eventually_unseal S L).
+    @ltl_eventually_unseal S L, @ltl_until_unseal S L).
 
   Ltac ltl_unseal := rewrite !ltl_unseal' /=.
 
@@ -615,6 +621,40 @@ Section ltl_lemmas.
     rewrite Hsuffix1. done.
   Qed.
 
+  (** ltl_not lemmas *)
+
+  Lemma excl_false (P : ltl_prop) :
+    P ∧ ¬ P ⊢ False.
+  Proof.
+    constructor. unseal.
+    intros tr [H1 H2].
+    by apply H2.
+  Qed.
+
+  Lemma ltl_not_not (P :ltl_prop) :
+    P ⊣⊢ ¬ ¬ P.
+  Proof.
+    constructor.
+    split.
+    - intros HP.
+      unseal.
+      intros H1. apply H1. done.
+    - unseal.
+      intros H1.
+      assert (P tr ∨ ¬ P tr).
+      { apply ExcludedMiddle. }
+      destruct H; [done|].
+      exfalso. apply H1. intros H2.
+      done.
+  Qed.
+
+  Lemma ltl_not_always_eventually_not (P : ltl_prop) :
+    (¬ □ P) ⊣⊢ ◊ ¬ P.
+  Proof.
+    rewrite ltl_always_unseal /ltl_always_def.
+    rewrite -ltl_not_not. done.
+  Qed.
+
   (** ltl_next lemmas *)
 
   Lemma ltl_next_intro (P : ltl_prop) s l (tr : trace S L) :
@@ -649,6 +689,134 @@ Section ltl_lemmas.
     - intros [tr' [Hafter [H1 H2]]]. split.
       + exists tr'. done.
       + exists tr'. done.
+  Qed.
+
+  (** ltl_until lemmas *)
+
+  Lemma ltl_untilI_alt (P Q : ltl_prop) tr :
+    (P ∪ Q)%I tr ↔ (∃ n tr',
+                       after n tr = Some tr' ∧
+                       (∀ i tr'', i < n → after i tr = Some tr'' → P tr'') ∧
+                       (P ∪ Q)%I tr').
+  Proof.
+    split.
+    - ltl_unseal.
+      intros Heventually.
+      induction Heventually.
+      { exists 0, tr. split; [done|].
+        split; [|by constructor 1].
+        intros. lia. }
+      destruct IHHeventually as [n [tr' [Hsuffix [HP HQ]]]].
+      exists (Datatypes.S n), tr'.
+      repeat split; [done| |done].
+      intros.
+      destruct i.
+      { simpl in *. simplify_eq. done. }
+      eapply (HP i); [lia|done].
+    - intros [n [tr' [Hafter [HP Htr']]]].
+      rewrite ltl_until_unseal.
+      rewrite ltl_until_unseal in Htr'.
+      revert n tr Hafter HP.
+      induction Htr'; intros n tr0 Hafter HP.
+      { revert tr tr0 Hafter HP H.
+        induction n; intros tr tr0 Hafter HP' HP.
+        { simpl in *. simplify_eq. by constructor. }
+        destruct tr0; [done|].
+        constructor 2.
+        { eapply (HP' 0); [lia|]. done. }
+        eapply IHn; [done| |done].
+        intros. eapply (HP' (Datatypes.S i)). lia. done.
+      }
+      revert tr0 Hafter HP.
+      induction n; intros tr0 Hafter HP.
+      { simpl in *. simplify_eq.
+        eapply (IHHtr' 1); try done.
+        intros. destruct i; [|lia].
+        simpl in *. simplify_eq. done. }
+      simpl in *.
+      destruct tr0; [done|]. simpl in *.
+      constructor 2.
+      { eapply (HP 0); [lia|]. done. }
+      eapply IHn; try done.
+      intros. eapply (HP (Datatypes.S i)); [lia|]. done.
+  Qed.
+
+  Lemma ltl_untilI (P Q : ltl_prop) tr :
+    (P ∪ Q)%I tr ↔ (∃ n tr',
+                       after n tr = Some tr' ∧
+                       (∀ i tr'', i < n → after i tr = Some tr'' → P tr'') ∧
+                       Q tr').
+  Proof.
+    split.
+    - ltl_unseal.
+      intros Heventually.
+      induction Heventually.
+      { exists 0, tr. split; [done|]. split; [|done].
+        intros. lia. }
+      destruct IHHeventually as [n [tr' [Hsuffix [HP HQ]]]].
+      exists (Datatypes.S n), tr'.
+      repeat split; [done| |done].
+      intros.
+      destruct i.
+      { simpl in *. simplify_eq. done. }
+      eapply (HP i); [lia|done].
+    - intros [n [tr' [Hsuffix [HP HQ]]]].
+      apply ltl_untilI_alt. exists n, tr'.
+      repeat split; [done..|].
+      rewrite ltl_until_unseal. by constructor 1.
+  Qed.
+
+  Lemma ltl_until_now (P Q : ltl_prop) :
+    Q ⊢ P ∪ Q.
+  Proof.
+    rewrite ltl_until_unseal.
+    constructor.
+    intros.
+    by constructor 1.
+  Qed.
+
+  Lemma ltl_until_next (P Q : ltl_prop) :
+    P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
+  Proof.
+    rewrite ltl_until_unseal.
+    constructor.
+    unseal.
+    intros tr [H1 H2].
+    destruct tr.
+    { revert H2. ltl_unseal. intros H2.
+      destruct H2 as [tr' [Htr' H]]. done. }
+    apply ltl_next_elim in H2.
+    by constructor 2.
+  Qed.
+
+  Lemma ltl_until_ind (P Q R : ltl_prop) :
+    (Q ⊢ R) →
+    (○ (ltl_until P Q) ∧ ○ R ∧ P ⊢ R) →
+    P ∪ Q ⊢ R.
+  Proof.
+    constructor.
+    intros tr H'.
+    rewrite ltl_until_unseal in H'. induction H'.
+    { by apply H. }
+    apply H0.
+    unseal.
+    repeat split.
+    - rewrite ltl_next_unseal /ltl_next_def.
+      eexists tr. simpl. rewrite ltl_until_unseal. done.
+    - rewrite ltl_next_unseal /ltl_next_def.
+      eexists _. done.
+    - done.
+  Qed.
+
+  Lemma ltl_until_not (P Q : ltl_prop) :
+    P ∪ Q ∧ ¬ P ⊢ Q.
+  Proof.
+    apply impl_elim_l'.
+    apply ltl_until_ind.
+    { iIntros "HQ _". done. }
+    iIntros "(HPQ&HR&HP) HP'".
+    iDestruct (excl_false with "[HP HP']") as %Hf.
+    iFrame. done.
   Qed.
 
   (** ltl_eventually lemmas *)
@@ -1001,6 +1169,102 @@ Section ltl_lemmas.
       exists 1. done.
   Qed.
 
+  (** Misc *)
+
+  (* TODO: Clean up these proofs, and move them somewhere else *)
+  Lemma ltl_eventually_and_r (P Q : ltl_prop) :
+    ◊ P ∧ ◊ Q ⊢ ◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q).
+  Proof.
+    constructor.
+    unseal.
+    intros tr [HP HQ].
+    rewrite ltl_eventuallyI in HP.
+    rewrite ltl_eventuallyI in HQ.
+    destruct HP as [trP [HtrP HP]].
+    destruct HQ as [trQ [HtrQ HQ]].
+    rewrite /trace_suffix_of in HtrP.
+    rewrite /trace_suffix_of in HtrQ.
+    destruct HtrP as [n Hn].
+    destruct HtrQ as [m Hm].
+    destruct (decide (n < m)).
+    { left.
+      rewrite ltl_eventuallyI. exists trP.
+      split.
+      { exists n. done. }
+      split; [done|].
+      rewrite ltl_eventuallyI. exists trQ.
+      split.
+      { assert (∃ k, m = k+n) as [k ->].
+        { exists (m-n). lia. }
+        rewrite after_sum in Hm.
+        rewrite Hn in Hm.
+        exists k. done. }
+      done. }
+    right.
+    rewrite ltl_eventuallyI. exists trQ.
+    split.
+    { exists m. done. }
+    split; [|done].
+    rewrite ltl_eventuallyI. exists trP.
+    split.
+    { assert (∃ k, n = k+m) as [k ->].
+      { exists (n-m). lia. }
+      rewrite after_sum in Hn.
+      rewrite Hm in Hn.
+      exists k. done. }
+    done.
+  Qed.
+
+  Lemma ltl_until_eventually_and_r (P Q R : ltl_prop) :
+    P ∪ Q ∧ ◊ R ⊢ P ∪ (Q ∧ ◊ R) ∨ ◊ (P ∪ Q ∧ R).
+  Proof.
+    constructor.
+    unseal.
+    intros tr [HPQ HR].
+    rewrite ltl_untilI in HPQ.
+    rewrite ltl_eventuallyI in HR.
+    destruct HPQ as [n [trPQ [HtrPQ [HP HQ]]]].
+    destruct HR as [trR [HtrR HR]].
+    rewrite /trace_suffix_of in HtrR.
+    destruct HtrR as [m Hm].
+    destruct (decide (n < m)).
+    { left.
+      rewrite ltl_untilI.
+      exists n, trPQ.
+      split; [done|].
+      split.
+      { intros. by eapply HP. }
+      split; [done|].
+      rewrite ltl_eventuallyI. exists trR.
+      split.
+      { assert (∃ k, m = k+n) as [k ->].
+        { exists (m-n). lia. }
+        rewrite after_sum in Hm.
+        rewrite HtrPQ in Hm.
+        exists k. done. }
+      done. }
+    right.
+    rewrite ltl_eventuallyI. exists trR.
+    split.
+    { exists m. done. }
+    split; [|done].
+    rewrite ltl_untilI.
+    assert (∃ k, n = k+m) as [k ->].
+    { exists (n-m). lia. }
+    exists k, trPQ.
+    split.
+    { rewrite after_sum in HtrPQ.
+      rewrite Hm in HtrPQ.
+      done. }
+    split.
+    { intros. eapply (HP (i+m)).
+      { lia. }
+      rewrite after_sum. rewrite Hm. done. }
+    done.
+  Qed.
+
+  (** Proofmode stuff *)
+
   Lemma bi_persistently_id (P : ltl_prop) :
     <pers> P ⊣⊢ P.
   Proof. constructor. intros tr. unseal. done. Qed.
@@ -1322,7 +1586,8 @@ Section ltl_proofmode.
     { iApply (ltl_always_introI with "[HP2]").
       { by iLeft. }
       iIntros "!> [HP|HP]".
-      + rewrite ltl_always_elim. iDestruct ("HP1" with "HP") as "HP". iModNext with "HP" as "$".
+      + rewrite ltl_always_elim. iDestruct ("HP1" with "HP") as "HP".
+        iModNext with "HP" as "$".
       + iModNext with "HP" as "$". }
     iIntros "!>".
     rewrite ltl_always_elim.
@@ -1330,6 +1595,46 @@ Section ltl_proofmode.
     - by iApply ltl_eventually_intro.
     - iApply ltl_next_eventually.
       iModNext with "H".
+      by iApply ltl_eventually_intro.
+  Qed.
+
+  Lemma ltl_always_eventually_intro (P : ltl_prop) :
+    □ (P → ○◊ P) ∧ P ⊢ □ ◊ P.
+  Proof.
+    iIntros "[HP1 HP2]".
+    iApply (ltl_always_introI with "[HP2]").
+    { by iApply ltl_eventually_intro. }
+    iIntros "!> HP". iApply ltl_eventually_next_comm.
+    iCombine "HP" "HP1" as "HP".
+    iModEv with "HP" as "[HP >HP1]".
+    iDestruct ("HP1" with "HP") as "HP".
+    by iApply ltl_eventually_next_comm.
+  Qed.
+
+  Lemma running_example_alt (P : ltl_prop) :
+    □ (P → ○○P) ∧ P ⊢ □ ◊ P.
+  Proof.
+    iIntros "[HP1 HP2]".
+    iApply ltl_always_eventually_intro. iFrame.
+    iIntros "!> HP". rewrite ltl_always_elim.
+    iDestruct ("HP1" with "HP") as "HP".
+    iModNext with "HP".
+    by iApply ltl_eventually_next_intro.
+  Qed.
+
+  Lemma ltl_until_example (P Q : ltl_prop) :
+    P ∪ Q ∧ (¬ □ P) ⊢ ◊ Q.
+  Proof.
+    rewrite ltl_not_always_eventually_not.
+    rewrite ltl_until_eventually_and_r.
+    apply or_elim.
+    - apply ltl_until_ind.
+      + iIntros "[H _]". by iApply ltl_eventually_intro.
+      + iIntros "(_&H&_)".
+        iApply ltl_eventually_idemp.
+        iApply ltl_eventually_next_intro. done.
+    - iIntros "H". iModEv with "H".
+      iDestruct (ltl_until_not with "H") as "H".
       by iApply ltl_eventually_intro.
   Qed.
 
