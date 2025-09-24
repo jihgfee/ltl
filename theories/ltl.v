@@ -991,14 +991,7 @@ Section ltl_lemmas.
 
   Lemma ltl_until_eventually (P Q : ltl_prop) :
     (P ∪ Q) ⊢ (◊ Q).
-  Proof.
-    constructor.
-    intros Htr. rewrite ltl_untilI ltl_eventuallyI.
-    intros (n&tr'&Htr'&HP&HQ).
-    exists tr'.
-    split; [|done].
-    exists n. done.
-  Qed.
+  Proof. apply ltl_until_mono; by eauto. Qed.
 
   (** ltl_always lemmas *)
 
