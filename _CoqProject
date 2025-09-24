@@ -17,3 +17,4 @@
 -arg -w -arg -argument-scope-delimiter
 
 theories/ltl.v
+theories/examples.v

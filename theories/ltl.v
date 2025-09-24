@@ -1228,6 +1228,16 @@ Section ltl_lemmas.
     done.
   Qed.
 
+  (* Maybe make this the main lemma *)
+  Lemma ltl_until_and_r' (P1 P2 Q1 Q2 : ltl_prop) :
+    P1 ∪ Q1 ∧ P2 ∪ Q2 ⊢ (P1 ∧ P2) ∪ ((Q1 ∧ P2 ∪ Q2) ∨ ((P1 ∪ Q1 ∧ Q2))).
+  Proof.
+    rewrite ltl_until_and_r.
+    apply or_elim.
+    - apply ltl_until_mono; [done|]. apply or_intro_l.
+    - apply ltl_until_mono; [done|]. apply or_intro_r.
+  Qed.
+
   (* TODO: Might not really need this lemma, as [ltl_until_and_r is strictly stronger. *)
   Lemma ltl_eventually_and_r (P Q : ltl_prop) :
     ◊ P ∧ ◊ Q ⊢ ◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q).
@@ -1369,14 +1379,14 @@ Section ltl_proofmode.
   Global Arguments into_eventually _%I _%I {_}.
   Global Hint Mode IntoEventually ! - : typeclass_instances.
 
-  Instance into_eventually_eventually (P : ltl_prop) :
+  Global Instance into_eventually_eventually (P : ltl_prop) :
     IntoEventually (◊ P) P.
   Proof.
     rewrite /IntoEventually. intros p.
     destruct p; simpl; by iIntros "HP".
   Qed.
 
-  Instance into_eventually_next (P Q : ltl_prop) :
+  Global Instance into_eventually_next (P Q : ltl_prop) :
     IntoEventually P Q →
     IntoEventually (○ P) (○ Q).
   Proof.
@@ -1400,14 +1410,14 @@ Section ltl_proofmode.
   Global Arguments into_next _%I _%I {_}.
   Global Hint Mode IntoNext ! - : typeclass_instances.
 
-  Instance into_next_next (P : ltl_prop) :
+  Global Instance into_next_next (P : ltl_prop) :
     IntoNext (○ P) P.
   Proof.
     rewrite /IntoNext. intros p.
     destruct p; simpl; by iIntros "HP".
   Qed.
 
-  Instance into_next_eventually (P Q : ltl_prop) :
+  Global Instance into_next_eventually (P Q : ltl_prop) :
     IntoNext P Q →
     IntoNext (◊ P) (◊ Q).
   Proof.
@@ -1431,7 +1441,7 @@ Section ltl_proofmode.
   Global Arguments into_always _%I _%I {_}.
   Global Hint Mode IntoAlways ! - : typeclass_instances.
 
-  Instance into_always_always (P : ltl_prop) :
+  Global Instance into_always_always (P : ltl_prop) :
     IntoAlways (□ P) (□ P).
   Proof.
     rewrite /IntoAlways. intros p.
@@ -1463,149 +1473,40 @@ Section ltl_proofmode.
     @FromModal ltlI ltlI _ True%type modality_always (□ P) (□ P) (P).
   Proof. rewrite /FromModal /=. done. Qed.
 
-  Tactic Notation "iModNext" "with" constr(pat) :=
-    iApply (ltl_next_mono with pat); try iIntros pat.
-  Tactic Notation "iModNext" "with" constr(pat1) "as" constr(pat2) :=
-    iApply (ltl_next_mono with pat1); try iIntros pat2.
-  Tactic Notation "iModEv" "with" constr(pat) :=
-    iApply ltl_eventually_idemp; iApply (ltl_eventually_mono with pat); try iIntros pat.
-  Tactic Notation "iModEv" "with" constr(pat1) "as" constr(pat2) :=
-    iApply ltl_eventually_idemp; iApply (ltl_eventually_mono with pat1); try iIntros pat2.
-
-  Instance ltl_next_combine (P Q : ltl_prop) :
+  Global Instance ltl_next_combine (P Q : ltl_prop) :
     CombineSepAs (○ P) (○ Q) (○ (P ∧ Q)).
   Proof. by rewrite /CombineSepAs bi_sep_and ltl_next_and. Qed.
 
-  Instance ltl_next_always_combine' (P Q : ltl_prop) :
+  Global Instance ltl_next_always_combine' (P Q : ltl_prop) :
     CombineSepAs (○ P) (□ Q) (○ (P ∧ □ Q)).
   Proof.
     rewrite /CombineSepAs. rewrite bi.sep_comm.
     apply ltl_next_always_combine.
   Qed.
 
-  Instance ltl_eventually_always_combine' (P Q : ltl_prop) :
+  Global Instance ltl_eventually_always_combine' (P Q : ltl_prop) :
     CombineSepAs (◊ P) (□ Q) (◊ (P ∧ □ Q)).
   Proof.
     rewrite /CombineSepAs. rewrite bi.sep_comm.
     apply ltl_eventually_always_combine.
   Qed.
 
-  Lemma foo (P Q : ltl_prop) :
-    (P ⊢ ○◊ (P ∧ Q)) → (P ⊢ □◊ Q).
-  Proof.
-    iIntros (HPQ) "HP".
-    iAssert (□ ◊ (P ∧ Q))%I with "[-]" as "[_ $]".
-    iApply (ltl_always_intro with "HP").
-    { iIntros "HP". iDestruct (HPQ with "HP") as "HPQ".
-      iApply ltl_eventually_next.
-      by rewrite -ltl_eventually_next_comm. }
-    iIntros "[HP _]".
-    rewrite -ltl_eventually_next_comm.
-    iModEv with "HP".
-    rewrite ltl_eventually_next_comm. by iApply HPQ.
-  Qed.
+  (* Global Instance ltl_until_combine (P1 P2 Q1 Q2 : ltl_prop) : *)
+  (*   CombineSepAs (P1 ∪ Q1) (P2 ∪ Q2) ((P1 ∧ P2) ∪ (Q1 ∧ (P2 ∪ Q2)) ∨ (P1 ∧ P2) ∪ ((P1 ∪ Q1) ∧ Q2)). *)
+  (* Proof. rewrite /CombineSepAs. apply ltl_until_and_r. Qed. *)
 
-  Lemma bar (P Q : ltl_prop) :
-    □ P ∧ ◊ (P → ○ ◊ Q) ⊢ ◊ Q.
-  Proof.
-    iIntros "[HP HPQ]". iCombine "HPQ HP" as "HPQ".
-    iModEv with "HPQ" as "[HPQ >HP]".
-    iApply ltl_next_eventually.
-    by iApply ("HPQ" with "HP").
-  Qed.
-
-  Lemma baz (P Q : ltl_prop) :
-    (□ (P ∧ Q)) ∧ ○ P ∧ Q ⊢ □ Q.
-  Proof. iIntros "[[HP HQ] [HP' HQ']]". iIntros "!>". by iMod "HQ". Qed.
-
-  Lemma ltl_always_intro_alt (P Q R : ltl_prop) :
-    (P ⊢ □ R) → (P ⊢ Q) → (□ R ∧ Q ⊢ (○ Q)) → (P ⊢ (□ Q)).
-  Proof.
-    intros HPR HPQ IHQ.
-    iIntros "HP".
-    iAssert (□ (ltl_and (□ R) Q))%I with "[HP]" as "H"; last first.
-    { iDestruct "H" as "[H1 H2]". done. }
-    iApply (ltl_always_intro with "HP").
-    - iIntros "#HP".
-      iDestruct (HPR with "HP") as "HR".
-      iDestruct (HPQ with "HP") as "HQ".
-      iSplit; done.
-    - iIntros "[#HR HQ]". iDestruct (IHQ with "[$HR $HQ]") as "H".
-      iCombine "H" "HR" as "H".
-      iModNext with "H" as "[HQ HR]".
-      iFrame.
-  Qed.
-
-  Lemma ltl_always_introI (P : ltl_prop) :
-     ⊢ P → (□ (P → (○ P))) → □ P.
-  Proof.
-    iIntros "HP HQ".
-    iApply (ltl_always_intro_alt (P ∧ □ (P → ○ P)) _ (P → ○ P)).
-    { iIntros "[_ $]". }
-    { iIntros "[$ _]". }
-    { iIntros "[H1 H2]".
-      rewrite ltl_always_elim. by iApply "H1". }
-    iFrame.
-  Qed.
-
-  Lemma running_example (P : ltl_prop) :
-    □ (P → ○○P) ∧ P ⊢ □ ◊ P.
-  Proof.
-    iIntros "[HP1 HP2]".
-    iAssert (□ (P ∨ (○P)))%I with "[HP1 HP2]" as "H".
-    { iApply (ltl_always_introI with "[HP2]").
-      { by iLeft. }
-      iIntros "!> [HP|HP]".
-      + rewrite ltl_always_elim. iDestruct ("HP1" with "HP") as "HP".
-        iModNext with "HP" as "$".
-      + iModNext with "HP" as "$". }
-    iIntros "!>".
-    rewrite ltl_always_elim.
-    iDestruct "H" as "[H|H]".
-    - by iApply ltl_eventually_intro.
-    - iApply ltl_next_eventually.
-      iModNext with "H".
-      by iApply ltl_eventually_intro.
-  Qed.
-
-  Lemma ltl_always_eventually_intro (P : ltl_prop) :
-    □ (P → ○◊ P) ∧ P ⊢ □ ◊ P.
-  Proof.
-    iIntros "[HP1 HP2]".
-    iApply (ltl_always_introI with "[HP2]").
-    { by iApply ltl_eventually_intro. }
-    iIntros "!> HP". iApply ltl_eventually_next_comm.
-    iCombine "HP" "HP1" as "HP".
-    iModEv with "HP" as "[HP >HP1]".
-    iDestruct ("HP1" with "HP") as "HP".
-    by iApply ltl_eventually_next_comm.
-  Qed.
-
-  Lemma running_example_alt (P : ltl_prop) :
-    □ (P → ○○P) ∧ P ⊢ □ ◊ P.
-  Proof.
-    iIntros "[HP1 HP2]".
-    iApply ltl_always_eventually_intro. iFrame.
-    iIntros "!> HP". rewrite ltl_always_elim.
-    iDestruct ("HP1" with "HP") as "HP".
-    iModNext with "HP".
-    by iApply ltl_eventually_next_intro.
-  Qed.
-
-  Lemma ltl_until_example (P Q : ltl_prop) :
-    P ∪ Q ∧ (¬ □ P) ⊢ ◊ Q.
-  Proof.
-    rewrite ltl_not_always_eventually_not.
-    rewrite ltl_until_and_r.
-    apply or_elim.
-    - apply ltl_until_ind.
-      + iIntros "[H _]". by iApply ltl_eventually_intro.
-      + iIntros "(_&H&_)".
-        iApply ltl_eventually_idemp.
-        iApply ltl_eventually_next_intro. done.
-    - iIntros "H". rewrite ltl_until_eventually. iModEv with "H".
-      iDestruct (ltl_until_not with "H") as "H".
-      by iApply ltl_eventually_intro.
-  Qed.
+  Global Instance ltl_until_combine' (P1 P2 Q1 Q2 : ltl_prop) :
+    CombineSepAs (P1 ∪ Q1) (P2 ∪ Q2) ((P1 ∧ P2) ∪ ((Q1 ∧ (P2 ∪ Q2)) ∨ ((P1 ∪ Q1) ∧ Q2))).
+  Proof. rewrite /CombineSepAs. apply ltl_until_and_r'. Qed.
 
 End ltl_proofmode.
+
+
+Tactic Notation "iModNext" "with" constr(pat) :=
+  iApply (ltl_next_mono with pat); try iIntros pat.
+Tactic Notation "iModNext" "with" constr(pat1) "as" constr(pat2) :=
+  iApply (ltl_next_mono with pat1); try iIntros pat2.
+Tactic Notation "iModEv" "with" constr(pat) :=
+  iApply ltl_eventually_idemp; iApply (ltl_eventually_mono with pat); try iIntros pat.
+Tactic Notation "iModEv" "with" constr(pat1) "as" constr(pat2) :=
+  iApply ltl_eventually_idemp; iApply (ltl_eventually_mono with pat1); try iIntros pat2.
