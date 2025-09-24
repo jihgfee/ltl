@@ -989,6 +989,10 @@ Section ltl_lemmas.
     trace_suffix_of tr1 tr2 → (◊P)%I tr1 → (◊P)%I tr2.
   Proof. intros Hsuffix HP. apply ltl_eventuallyI_alt. by exists tr1. Qed.
 
+  Lemma ltl_until_eventually_equiv (P : ltl_prop) :
+    (True ∪ P) ⊣⊢ (◊ P).
+  Proof. done. Qed.
+
   Lemma ltl_until_eventually (P Q : ltl_prop) :
     (P ∪ Q) ⊢ (◊ Q).
   Proof. apply ltl_until_mono; by eauto. Qed.
