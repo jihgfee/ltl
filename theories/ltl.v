@@ -529,7 +529,7 @@ Section ltl_primitives.
   Local Definition ltl_next_unseal :
     @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
 
-  Inductive ltl_until_def P Q : ltl_prop :=
+  Inductive ltl_until_def (P Q : ltl_prop) : ltl_prop :=
   | ltl_until_here tr : Q tr -> ltl_until_def P Q tr
   | ltl_until_cons s l tr : P (s -[l]-> tr) → ltl_until_def P Q tr → ltl_until_def P Q (s -[l]-> tr).
   Local Definition ltl_until_aux : seal (@ltl_until_def).
@@ -538,14 +538,7 @@ Section ltl_primitives.
   Local Definition ltl_until_unseal :
     @ltl_until = @ltl_until_def := seal_eq ltl_until_aux.
 
-  Inductive ltl_eventually_def P : ltl_prop :=
-  | ltl_eventually_here tr : P tr -> ltl_eventually_def P tr
-  | ltl_eventually_cons s l tr : ltl_eventually_def P tr → ltl_eventually_def P (s -[l]-> tr).
-  Local Definition ltl_eventually_aux : seal (@ltl_eventually_def).
-  Proof. by eexists. Qed.
-  Definition ltl_eventually := unseal ltl_eventually_aux.
-  Local Definition ltl_eventually_unseal :
-    @ltl_eventually = @ltl_eventually_def := seal_eq ltl_eventually_aux.
+  Notation ltl_eventually P := (ltl_until True P).
 
   Local Definition ltl_always_def (P:ltl_prop) : ltl_prop := (¬ ltl_eventually (¬ P)).
   Local Definition ltl_always_aux : seal (@ltl_always_def).
@@ -558,7 +551,7 @@ End ltl_primitives.
 
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 Notation "□ P" := (ltl_always P%I) (at level 20, right associativity) : bi_scope.
-Notation "◊ P" := (ltl_eventually P%I) (at level 20, right associativity) : bi_scope.
+Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi_scope.
 Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
 Notation "↓ P" := (ltl_now P) (at level 20, right associativity) : bi_scope.
 
@@ -576,7 +569,7 @@ Section ltl_lemmas.
        @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
          @ltl_later_unseal S L, @ltl_internal_eq_unseal S L,
     @ltl_next_unseal S L, @ltl_now_unseal S L, @ltl_always_unseal S L,
-    @ltl_eventually_unseal S L, @ltl_until_unseal S L).
+    @ltl_until_unseal S L).
 
   Ltac ltl_unseal := rewrite !ltl_unseal' /=.
 
@@ -766,7 +759,7 @@ Section ltl_lemmas.
       rewrite ltl_until_unseal. by constructor 1.
   Qed.
 
-  Lemma ltl_until_now (P Q : ltl_prop) :
+  Lemma ltl_until_intro (P Q : ltl_prop) :
     Q ⊢ P ∪ Q.
   Proof.
     rewrite ltl_until_unseal.
@@ -775,7 +768,7 @@ Section ltl_lemmas.
     by constructor 1.
   Qed.
 
-  Lemma ltl_until_next (P Q : ltl_prop) :
+  Lemma ltl_until_next_intro (P Q : ltl_prop) :
     P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
   Proof.
     rewrite ltl_until_unseal.
@@ -819,6 +812,15 @@ Section ltl_lemmas.
     iFrame. done.
   Qed.
 
+  Lemma ltl_until_mono (P1 P2 Q1 Q2 : ltl_prop) :
+    (P1 ⊢ P2) → (Q1 ⊢ Q2) → (P1 ∪ Q1) ⊢ (P2 ∪ Q2).
+  Proof.
+    intros HP HQ. constructor. intros tr.
+    rewrite !ltl_untilI. intros [n [tr' [Htr' [HP' HQ']]]].
+    exists n, tr'. split; [done|]. split; [|by apply HQ].
+    intros. apply HP. by eapply HP'.
+  Qed.
+
   (** ltl_eventually lemmas *)
 
   Lemma ltl_eventually_intro (P : ltl_prop) :
@@ -831,33 +833,25 @@ Section ltl_lemmas.
     constructor. ltl_unseal. intros tr Hnext.
     induction Hnext.
     { destruct tr; [inversion H; naive_solver|].
-      constructor 2. constructor. eapply (ltl_next_elim _ s ℓ). ltl_unseal. rewrite /ltl_next_def. simpl.
+      unseal.
+      constructor 2; [done|]. constructor.
+      eapply (ltl_next_elim _ s ℓ). ltl_unseal.
+      rewrite /ltl_next_def. simpl.
       exists tr. simpl in *. inversion H. simplify_eq. done. }
   Qed.
   
   Lemma ltl_eventuallyI_alt (P : ltl_prop) tr :
     (◊ P)%I tr ↔ (∃ tr', trace_suffix_of tr' tr ∧ (◊ P)%I tr').
   Proof.
-    ltl_unseal.
     split.
-    - intros Heventually.
-      induction Heventually.
-      { exists tr. split; [apply trace_suffix_of_refl|].
-        by unseal_apply ltl_eventually_intro. }
-      destruct IHHeventually as [tr' [Hsuffix HP]].
-      exists tr'.
-      split; [|done].
-      by apply trace_suffix_of_cons_r.
-    - intros [tr' [Hsuffix Htr']].
-      induction Htr'.
-      { destruct Hsuffix as [n Hafter].
-        revert tr tr0 Hafter H.
-        induction n; intros tr tr0 Hafter HP.
-        { simpl in *. simplify_eq. by constructor. }
-        destruct tr; [done|].
-        constructor 2. by eapply IHn. }
-      apply IHHtr'.
-      by eapply trace_suffix_of_cons_l.
+    - intros. apply ltl_untilI_alt in H.
+      destruct H as (n&tr'&Htr'&HP&HQ).
+      eexists _. split; [eexists _; done|done].
+    - intros. apply ltl_untilI_alt.
+      destruct H as (tr'&[n Htr']&HP).
+      eexists _, _.
+      split; [done|].
+      split; [|done]. intros. unseal. done.
   Qed.
 
   Lemma ltl_eventuallyI (P : ltl_prop) tr :
@@ -883,7 +877,7 @@ Section ltl_lemmas.
     constructor.
     split.
     - ltl_unseal. intros Htr. induction Htr; [done|].
-      apply ltl_eventually_cons. done.
+      by constructor 2.
     - rewrite ->!ltl_eventuallyI.
       intros [tr' [Htr' HP]].
       exists tr'. split; [done|].
@@ -994,7 +988,18 @@ Section ltl_lemmas.
   Lemma ltl_eventually_suffix_of (P : ltl_prop) tr1 tr2 :
     trace_suffix_of tr1 tr2 → (◊P)%I tr1 → (◊P)%I tr2.
   Proof. intros Hsuffix HP. apply ltl_eventuallyI_alt. by exists tr1. Qed.
-    
+
+  Lemma ltl_until_eventually (P Q : ltl_prop) :
+    (P ∪ Q) ⊢ (◊ Q).
+  Proof.
+    constructor.
+    intros Htr. rewrite ltl_untilI ltl_eventuallyI.
+    intros (n&tr'&Htr'&HP&HQ).
+    exists tr'.
+    split; [|done].
+    exists n. done.
+  Qed.
+
   (** ltl_always lemmas *)
 
   Lemma ltl_always_cons (P : ltl_prop) s l (tr : trace S L) :
@@ -1013,7 +1018,7 @@ Section ltl_lemmas.
     intros tr Htr.
     assert (P tr ∨ ¬ P tr) as [|HP] by apply ExcludedMiddle; [done|].
     assert (¬ (¬ P)%I tr).
-    { unseal. intros Htr'. apply Htr. apply ltl_eventually_intro. done. }
+    { unseal. intros Htr'. apply Htr. apply ltl_until_intro. done. }
     revert HP H. unseal. intros HP H.
     exfalso.
     apply H. apply HP.
@@ -1028,7 +1033,7 @@ Section ltl_lemmas.
       rewrite /ltl_impl_def /ltl_pure_def.
       ltl_unseal.
       intros Htr Htr'.
-      induction Htr'; [by apply H|].
+      induction Htr' as [|s l tr HP HQ IHHtr']; [by apply H|].
       apply IHHtr'.
       pose proof ltl_always_cons.
       revert H. ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def.
@@ -1041,9 +1046,10 @@ Section ltl_lemmas.
   Lemma ltl_always_mono (P Q : ltl_prop) :
     (P ⊢ Q) → (□P) ⊢ (□Q) .
   Proof.
-    intros HPQ. constructor. ltl_unseal. rewrite /ltl_always_def. unseal.
-    rewrite /ltl_impl_def /ltl_pure_def.
-    intros tr HP HQ. apply HP. eapply ltl_eventually_mono; [|done].
+    intros HPQ. constructor. ltl_unseal. rewrite /ltl_always_def.
+    unseal.
+    intros tr HP HQ.
+    apply HP. eapply ltl_until_mono; [done| |done].
     clear HP HQ.
     constructor. intros tr' HP HQ. apply HP. apply HPQ. done.
   Qed.
@@ -1058,15 +1064,16 @@ Section ltl_lemmas.
     - intros Htr tr' Hsuffix Htr'.
       apply Htr.
       induction Htr'.
-      { unseal_apply ltl_eventuallyI_alt.
-        exists tr0. split; [done|].
-        by unseal_apply ltl_eventually_intro. }
+      { unseal_apply ltl_untilI_alt.
+        destruct Hsuffix as [n Hsuffix].
+        exists n,tr0. split; [done|]. split; [done|].
+        by unseal_apply ltl_until_intro. }
       apply IHHtr'. by eapply trace_suffix_of_cons_l.
     - intros Htr' Htr.
       induction Htr.
       { specialize (Htr' tr). apply Htr'.
         { apply trace_suffix_of_refl. }
-        by unseal_apply ltl_eventually_intro. }
+        by unseal_apply ltl_until_intro. }
       apply IHHtr. intros tr' Htsuffix. apply Htr'.
       by eapply trace_suffix_of_cons_r.
   Qed.
@@ -1082,8 +1089,8 @@ Section ltl_lemmas.
     - intros HP tr' Hsuff. rewrite ltl_alwaysI_alt in HP.
       apply ltl_always_elim. eauto.
     - ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def /ltl_pure_def.
-      intros H Habs. apply ltl_eventuallyI in Habs as (tr'&Hsuff&?).
-      by specialize (H _ Hsuff).
+      intros H Habs. apply ltl_untilI in Habs as (n&tr'&Hsuff&?&?).
+      apply H1. apply H. exists n. done.
   Qed.
 
   Lemma ltl_always_and (P Q : ltl_prop) :
@@ -1147,13 +1154,14 @@ Section ltl_lemmas.
   Proof.
     constructor. ltl_unseal. unseal.
     intros tr [HP HQ].
-    pose proof ltl_eventuallyI as H. revert H. ltl_unseal. intros H.
-    apply H in HQ as [tr' [Htr' HQ]].
-    unseal_apply ltl_eventuallyI.
-    exists tr'. split; [done|].
+    pose proof ltl_untilI as H. revert H. ltl_unseal. intros H.
+    apply H in HQ as (n&tr'&Htr'&HP'&HQ).
+    unseal_apply ltl_untilI.
+    exists n,tr'. split; [done|].
+    split; [done|].
     split.
     - apply HQ.
-    - by unseal_eapply ltl_always_suffix_of.
+    - unseal_eapply ltl_always_suffix_of; [by exists n|done].
   Qed.
 
   Lemma ltl_next_always_combine (P Q : ltl_prop) :
@@ -1171,97 +1179,62 @@ Section ltl_lemmas.
 
   (** Misc *)
 
-  (* TODO: Clean up these proofs, and move them somewhere else *)
-  Lemma ltl_eventually_and_r (P Q : ltl_prop) :
-    ◊ P ∧ ◊ Q ⊢ ◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q).
+  Lemma ltl_until_and_r (P1 P2 Q1 Q2 : ltl_prop) :
+    P1 ∪ Q1 ∧ P2 ∪ Q2 ⊢ ((P1 ∧ P2) ∪ (Q1 ∧ P2 ∪ Q2)) ∨ ((P1 ∧ P2) ∪ (P1 ∪ Q1 ∧ Q2)).
   Proof.
     constructor.
     unseal.
-    intros tr [HP HQ].
-    rewrite ltl_eventuallyI in HP.
-    rewrite ltl_eventuallyI in HQ.
-    destruct HP as [trP [HtrP HP]].
-    destruct HQ as [trQ [HtrQ HQ]].
-    rewrite /trace_suffix_of in HtrP.
-    rewrite /trace_suffix_of in HtrQ.
-    destruct HtrP as [n Hn].
-    destruct HtrQ as [m Hm].
-    destruct (decide (n < m)).
-    { left.
-      rewrite ltl_eventuallyI. exists trP.
-      split.
-      { exists n. done. }
-      split; [done|].
-      rewrite ltl_eventuallyI. exists trQ.
-      split.
-      { assert (∃ k, m = k+n) as [k ->].
-        { exists (m-n). lia. }
-        rewrite after_sum in Hm.
-        rewrite Hn in Hm.
-        exists k. done. }
-      done. }
-    right.
-    rewrite ltl_eventuallyI. exists trQ.
-    split.
-    { exists m. done. }
-    split; [|done].
-    rewrite ltl_eventuallyI. exists trP.
-    split.
-    { assert (∃ k, n = k+m) as [k ->].
-      { exists (n-m). lia. }
-      rewrite after_sum in Hn.
-      rewrite Hm in Hn.
-      exists k. done. }
-    done.
-  Qed.
-
-  Lemma ltl_until_eventually_and_r (P Q R : ltl_prop) :
-    P ∪ Q ∧ ◊ R ⊢ P ∪ (Q ∧ ◊ R) ∨ ◊ (P ∪ Q ∧ R).
-  Proof.
-    constructor.
-    unseal.
-    intros tr [HPQ HR].
-    rewrite ltl_untilI in HPQ.
-    rewrite ltl_eventuallyI in HR.
-    destruct HPQ as [n [trPQ [HtrPQ [HP HQ]]]].
-    destruct HR as [trR [HtrR HR]].
-    rewrite /trace_suffix_of in HtrR.
-    destruct HtrR as [m Hm].
+    intros tr [HPQ1 HPQ2].
+    rewrite ltl_untilI in HPQ1.
+    rewrite ltl_untilI in HPQ2.
+    destruct HPQ1 as (n&trPQ1&HtrPQ1&HP1&HQ1).
+    destruct HPQ2 as (m&trPQ2&HtrPQ2&HP2&HQ2).
     destruct (decide (n < m)).
     { left.
       rewrite ltl_untilI.
-      exists n, trPQ.
+      exists n, trPQ1.
       split; [done|].
       split.
-      { intros. by eapply HP. }
+      { intros. split; [by eapply HP1|eapply HP2; [|done]]. lia. }
       split; [done|].
-      rewrite ltl_eventuallyI. exists trR.
+      rewrite ltl_untilI.
+      assert (∃ k, m = k+n) as [k ->].
+      { exists (m-n). lia. }
+      exists k,trPQ2.
       split.
-      { assert (∃ k, m = k+n) as [k ->].
-        { exists (m-n). lia. }
-        rewrite after_sum in Hm.
-        rewrite HtrPQ in Hm.
-        exists k. done. }
-      done. }
+      { rewrite after_sum in HtrPQ2.
+        rewrite HtrPQ1 in HtrPQ2.
+        done. }
+      split; [|done].
+      intros. eapply (HP2 (i+n)).
+      { lia. }
+      rewrite after_sum. rewrite HtrPQ1. done. }
     right.
-    rewrite ltl_eventuallyI. exists trR.
+    rewrite ltl_untilI.
+    exists m, trPQ2.
+    split; [done|].
     split.
-    { exists m. done. }
+    { intros. split; [eapply HP1; [|done]|by eapply HP2]. lia. }
     split; [|done].
     rewrite ltl_untilI.
     assert (∃ k, n = k+m) as [k ->].
     { exists (n-m). lia. }
-    exists k, trPQ.
+    exists k, trPQ1.
     split.
-    { rewrite after_sum in HtrPQ.
-      rewrite Hm in HtrPQ.
+    { rewrite after_sum in HtrPQ1.
+      rewrite HtrPQ2 in HtrPQ1.
       done. }
     split.
-    { intros. eapply (HP (i+m)).
+    { intros. eapply (HP1 (i+m)).
       { lia. }
-      rewrite after_sum. rewrite Hm. done. }
+      rewrite after_sum. rewrite HtrPQ2. done. }
     done.
   Qed.
+
+  (* TODO: Might not really need this lemma, as [ltl_until_and_r is strictly stronger. *)
+  Lemma ltl_eventually_and_r (P Q : ltl_prop) :
+    ◊ P ∧ ◊ Q ⊢ ◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q).
+  Proof. by rewrite ltl_until_and_r !ltl_until_eventually. Qed.
 
   (** Proofmode stuff *)
 
@@ -1626,14 +1599,14 @@ Section ltl_proofmode.
     P ∪ Q ∧ (¬ □ P) ⊢ ◊ Q.
   Proof.
     rewrite ltl_not_always_eventually_not.
-    rewrite ltl_until_eventually_and_r.
+    rewrite ltl_until_and_r.
     apply or_elim.
     - apply ltl_until_ind.
       + iIntros "[H _]". by iApply ltl_eventually_intro.
       + iIntros "(_&H&_)".
         iApply ltl_eventually_idemp.
         iApply ltl_eventually_next_intro. done.
-    - iIntros "H". iModEv with "H".
+    - iIntros "H". rewrite ltl_until_eventually. iModEv with "H".
       iDestruct (ltl_until_not with "H") as "H".
       by iApply ltl_eventually_intro.
   Qed.
