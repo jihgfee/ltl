@@ -810,6 +810,22 @@ Section ltl_lemmas.
     intros. apply HP. by eapply HP'.
   Qed.
 
+  Lemma ltl_until_idemp (P Q : ltl_prop) :
+    (P ∪ (P ∪ Q)) ⊣⊢ (P ∪ Q).
+  Proof.
+    constructor.
+    split.
+    - ltl_unseal. intros Htr. induction Htr; [done|].
+      by constructor 2.
+    - rewrite ->!ltl_untilI.
+      intros [n [tr' [Htr' [HP HQ]]]].
+      exists n, tr'. split; [done|].
+      rewrite ->!ltl_untilI.
+      split.
+      { done. }
+      exists 0, tr'. split; [done|]. split; [by intros;lia|done].
+  Qed.
+
   (** ltl_eventually lemmas *)
 
   Lemma ltl_eventually_intro (P : ltl_prop) :
