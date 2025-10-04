@@ -8,34 +8,6 @@ Section examples.
 
   Import ltl_prop.
 
-  Lemma foo (P Q : ltl_prop) :
-    (P ⊢ ○◊ (P ∧ Q)) → (P ⊢ □◊ Q).
-  Proof.
-    iIntros (HPQ) "HP".
-    iAssert (□ ◊ (P ∧ Q))%I with "[-]" as "[_ $]".
-    iApply (ltl_always_intro with "HP").
-    { iIntros "HP". iDestruct (HPQ with "HP") as "HPQ".
-      iApply ltl_eventually_next.
-      by rewrite -ltl_eventually_next_comm. }
-    iIntros "[HP _]".
-    rewrite -ltl_eventually_next_comm.
-    iModEv with "HP".
-    rewrite ltl_eventually_next_comm. by iApply HPQ.
-  Qed.
-
-  Lemma bar (P Q : ltl_prop) :
-    □ P ∧ ◊ (P → ○ ◊ Q) ⊢ ◊ Q.
-  Proof.
-    iIntros "[HP HPQ]". iCombine "HPQ HP" as "HPQ".
-    iModEv with "HPQ" as "[HPQ >HP]".
-    iApply ltl_next_eventually.
-    by iApply ("HPQ" with "HP").
-  Qed.
-
-  Lemma baz (P Q : ltl_prop) :
-    (□ (P ∧ Q)) ∧ ○ P ∧ Q ⊢ □ Q.
-  Proof. iIntros "[[HP HQ] [HP' HQ']]". iIntros "!>". by iMod "HQ". Qed.
-
   Lemma ltl_always_intro_alt (P Q R : ltl_prop) :
     (P ⊢ □ R) → (P ⊢ Q) → (□ R ∧ Q ⊢ (○ Q)) → (P ⊢ (□ Q)).
   Proof.
@@ -65,6 +37,33 @@ Section examples.
       rewrite ltl_always_elim. by iApply "H1". }
     iFrame.
   Qed.
+
+  Lemma foo (P Q : ltl_prop) :
+    (P ⊢ ○◊ (P ∧ Q)) → (P ⊢ □◊ Q).
+  Proof.
+    iIntros (HPQ) "HP".
+    iAssert (□ ◊ (P ∧ Q))%I with "[-]" as "[_ $]".
+    iApply (ltl_always_introI with "[HP]").
+    { iDestruct (HPQ with "HP") as "HP".
+      by rewrite ltl_next_eventually. }
+    iIntros "!> [HP _]".
+    rewrite -ltl_eventually_next_comm.
+    iModEv with "HP".
+    rewrite ltl_eventually_next_comm. by iApply HPQ.
+  Qed.
+
+  Lemma bar (P Q : ltl_prop) :
+    □ P ∧ ◊ (P → ○ ◊ Q) ⊢ ◊ Q.
+  Proof.
+    iIntros "[HP HPQ]". iCombine "HPQ HP" as "HPQ".
+    iModEv with "HPQ" as "[HPQ >HP]".
+    iApply ltl_next_eventually.
+    by iApply ("HPQ" with "HP").
+  Qed.
+
+  Lemma baz (P Q : ltl_prop) :
+    (□ (P ∧ Q)) ∧ ○ P ∧ Q ⊢ □ Q.
+  Proof. iIntros "[[HP HQ] [HP' HQ']]". iIntros "!>". by iMod "HQ". Qed.
 
   Lemma running_example (P : ltl_prop) :
     □ (P → ○○P) ∧ P ⊢ □ ◊ P.
