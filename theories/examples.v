@@ -1,5 +1,5 @@
 From iris.proofmode Require Import proofmode.
-From ltl Require Import ltl.
+From ltl Require Import ltl_no_em.
 
 Section examples.
   Context {S L : Type}.
@@ -8,35 +8,9 @@ Section examples.
 
   Import ltl_prop.
 
-  Lemma ltl_always_intro_alt (P Q R : ltl_prop) :
-    (P ⊢ □ R) → (P ⊢ Q) → (□ R ∧ Q ⊢ (○ Q)) → (P ⊢ (□ Q)).
-  Proof.
-    intros HPR HPQ IHQ.
-    iIntros "HP".
-    iAssert (□ (ltl_and (□ R) Q))%I with "[HP]" as "H"; last first.
-    { iDestruct "H" as "[H1 H2]". done. }
-    iApply (ltl_always_intro with "HP").
-    - iIntros "#HP".
-      iDestruct (HPR with "HP") as "HR".
-      iDestruct (HPQ with "HP") as "HQ".
-      iSplit; done.
-    - iIntros "[#HR HQ]". iDestruct (IHQ with "[$HR $HQ]") as "H".
-      iCombine "H" "HR" as "H".
-      iModNext with "H" as "[HQ HR]".
-      iFrame.
-  Qed.
-
   Lemma ltl_always_introI (P : ltl_prop) :
      ⊢ P → (□ (P → (○ P))) → □ P.
-  Proof.
-    iIntros "HP HQ".
-    iApply (ltl_always_intro_alt (P ∧ □ (P → ○ P)) _ (P → ○ P)).
-    { iIntros "[_ $]". }
-    { iIntros "[$ _]". }
-    { iIntros "[H1 H2]".
-      rewrite ltl_always_elim. by iApply "H1". }
-    iFrame.
-  Qed.
+  Proof. iIntros "HP HQ". iApply (ltl_always_intro with "HQ HP"). Qed.
 
   Lemma foo (P Q : ltl_prop) :
     (P ⊢ ○◊ (P ∧ Q)) → (P ⊢ □◊ Q).
@@ -112,14 +86,6 @@ Section examples.
 
   Lemma ltl_until_example (P Q : ltl_prop) :
     P ∪ Q ∧ (¬ □ P) ⊢ ◊ Q.
-  Proof.
-    rewrite ltl_not_always_eventually_not.
-    iIntros "[H1 H2]".
-    iCombine "H1 H2" as "H".
-    rewrite ltl_until_eventually.
-    iModEv with "H" as "[[H _]|[H _]]".
-    - by iApply ltl_eventually_intro.
-    - rewrite ltl_until_eventually. done.
-  Qed.
+  Proof. rewrite -ltl_until_eventually. apply bi.and_elim_l. Qed.
 
 End examples.
