@@ -1012,6 +1012,35 @@ Section ltl_lemmas.
     revert Htr'. ltl_unseal. by constructor 2.
   Qed.
 
+
+  Lemma ltl_alwaysI_alt (P : ltl_prop) tr :
+    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → (□ P)%I tr').
+  Proof.
+    ltl_unseal. rewrite /ltl_always_def. unseal.
+    rewrite /ltl_impl_def /ltl_pure_def.
+    ltl_unseal.
+    split.
+    - intros Htr tr' Hsuffix Htr'.
+      apply Htr.
+      induction Htr'.
+      { unseal_apply ltl_untilI_alt.
+        destruct Hsuffix as [n Hsuffix].
+        exists n,tr0. split; [done|]. split; [done|].
+        by unseal_apply ltl_until_intro. }
+      apply IHHtr'. by eapply trace_suffix_of_cons_l.
+    - intros Htr' Htr.
+      induction Htr.
+      { specialize (Htr' tr). apply Htr'.
+        { apply trace_suffix_of_refl. }
+        by unseal_apply ltl_until_intro. }
+      apply IHHtr. intros tr' Htsuffix. apply Htr'.
+      by eapply trace_suffix_of_cons_r.
+  Qed.
+
+  Lemma ltl_always_suffix_of (P : ltl_prop) tr1 tr2 :
+    trace_suffix_of tr2 tr1 → (□P)%I tr1 → (□P)%I tr2.
+  Proof. rewrite (ltl_alwaysI_alt _ tr1). intros Hsuffix HP. by eapply HP. Qed.
+
   Lemma ltl_always_elim (P : ltl_prop) :
     (□P) ⊢ P.
   Proof.
@@ -1024,6 +1053,27 @@ Section ltl_lemmas.
     revert HP H. unseal. intros HP H.
     exfalso.
     apply H. apply HP.
+  Qed.
+
+  Lemma ltl_alwaysI (P : ltl_prop) tr :
+    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → P tr').
+  Proof.
+    split.
+    - intros HP tr' Hsuff. rewrite ltl_alwaysI_alt in HP.
+      apply ltl_always_elim. eauto.
+    - ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def /ltl_pure_def.
+      intros H Habs. apply ltl_untilI in Habs as (n&tr'&Hsuff&?&?).
+      apply H1. apply H. exists n. done.
+  Qed.
+
+  Lemma ltl_always_intro' (P : ltl_prop) :
+    (⊢ P) → (⊢ □ P).
+  Proof.
+    intros [HP].
+    constructor.
+    intros tr _. apply ltl_alwaysI.
+    intros tr' Hsuff. apply HP.
+    unseal. done.
   Qed.
 
   Lemma ltl_always_idemp (P : ltl_prop) :
@@ -1054,45 +1104,6 @@ Section ltl_lemmas.
     apply HP. eapply ltl_until_mono; [done| |done].
     clear HP HQ.
     constructor. intros tr' HP HQ. apply HP. apply HPQ. done.
-  Qed.
-
-  Lemma ltl_alwaysI_alt (P : ltl_prop) tr :
-    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → (□ P)%I tr').
-  Proof.
-    ltl_unseal. rewrite /ltl_always_def. unseal.
-    rewrite /ltl_impl_def /ltl_pure_def.
-    ltl_unseal.
-    split.
-    - intros Htr tr' Hsuffix Htr'.
-      apply Htr.
-      induction Htr'.
-      { unseal_apply ltl_untilI_alt.
-        destruct Hsuffix as [n Hsuffix].
-        exists n,tr0. split; [done|]. split; [done|].
-        by unseal_apply ltl_until_intro. }
-      apply IHHtr'. by eapply trace_suffix_of_cons_l.
-    - intros Htr' Htr.
-      induction Htr.
-      { specialize (Htr' tr). apply Htr'.
-        { apply trace_suffix_of_refl. }
-        by unseal_apply ltl_until_intro. }
-      apply IHHtr. intros tr' Htsuffix. apply Htr'.
-      by eapply trace_suffix_of_cons_r.
-  Qed.
-
-  Lemma ltl_always_suffix_of (P : ltl_prop) tr1 tr2 :
-    trace_suffix_of tr2 tr1 → (□P)%I tr1 → (□P)%I tr2.
-  Proof. rewrite (ltl_alwaysI_alt _ tr1). intros Hsuffix HP. by eapply HP. Qed.
-
-  Lemma ltl_alwaysI (P : ltl_prop) tr :
-    (□P)%I tr ↔ (∀ tr', trace_suffix_of tr' tr → P tr').
-  Proof.
-    split.
-    - intros HP tr' Hsuff. rewrite ltl_alwaysI_alt in HP.
-      apply ltl_always_elim. eauto.
-    - ltl_unseal. rewrite /ltl_always_def. unseal. rewrite /ltl_impl_def /ltl_pure_def.
-      intros H Habs. apply ltl_untilI in Habs as (n&tr'&Hsuff&?&?).
-      apply H1. apply H. exists n. done.
   Qed.
 
   Lemma ltl_always_and (P Q : ltl_prop) :
@@ -1139,16 +1150,6 @@ Section ltl_lemmas.
     revert Hnext. ltl_unseal. intros Hnext.
     destruct Hnext as [? [H' H'']].
     simplify_eq. done.
-  Qed.
-
-  Lemma ltl_always_intro' (P : ltl_prop) :
-    (⊢ P) → (⊢ □ P).
-  Proof.
-    intros [HP].
-    constructor.
-    intros tr _. apply ltl_alwaysI.
-    intros tr' Hsuff. apply HP.
-    unseal. done.
   Qed.
 
   Lemma ltl_eventually_always_combine (P Q : ltl_prop) :
