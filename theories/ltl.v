@@ -801,17 +801,6 @@ Section ltl_lemmas.
     - done.
   Qed.
 
-  Lemma ltl_until_not (P Q : ltl_prop) :
-    P ∪ Q ∧ ¬ P ⊢ Q.
-  Proof.
-    apply impl_elim_l'.
-    apply ltl_until_ind.
-    { iIntros "HQ _". done. }
-    iIntros "(HPQ&HR&HP) HP'".
-    iDestruct (excl_false with "[HP HP']") as %Hf.
-    iFrame. done.
-  Qed.
-
   Lemma ltl_until_mono (P1 P2 Q1 Q2 : ltl_prop) :
     (P1 ⊢ P2) → (Q1 ⊢ Q2) → (P1 ∪ Q1) ⊢ (P2 ∪ Q2).
   Proof.
