@@ -17,4 +17,5 @@
 -arg -w -arg -argument-scope-delimiter
 
 theories/ltl.v
+theories/ltl_no_em.v
 theories/examples.v
