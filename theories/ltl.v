@@ -549,6 +549,12 @@ Section ltl_primitives.
 
 End ltl_primitives.
 
+Global Instance: Params (@ltl_now) 2 := {}.
+Global Instance: Params (@ltl_next) 2 := {}.
+Global Instance: Params (@ltl_until) 2 := {}.
+(* Global Instance: Params (@ltl_eventually) 2 := {}. *)
+Global Instance: Params (@ltl_always) 2 := {}.
+
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 Notation "□ P" := (ltl_always P%I) (at level 20, right associativity) : bi_scope.
 Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi_scope.
