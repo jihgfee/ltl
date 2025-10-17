@@ -18,4 +18,6 @@
 
 theories/ltl.v
 theories/ltl_no_em.v
+theories/ltl_no_em_alt_next.v
 theories/examples.v
+theories/examples_alt_next.v
