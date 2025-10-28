@@ -53,10 +53,10 @@ Section examples.
     iIntros "!>".
     rewrite ltl_always_elim.
     iDestruct "H" as "[H|H]".
-    - by iApply ltl_eventually_intro.
+    - by iApply ltl_eventually_intro_now.
     - iApply ltl_next_eventually.
       iIntros "!>".
-      by iApply ltl_eventually_intro.
+      by iApply ltl_eventually_intro_now.
   Qed.
 
   Lemma ltl_always_eventually_intro (P : ltl_prop) :
@@ -64,7 +64,7 @@ Section examples.
   Proof.
     iIntros "[HP1 HP2]".
     iApply (ltl_always_introI with "[HP2]").
-    { by iApply ltl_eventually_intro. }
+    { by iApply ltl_eventually_intro_now. }
     iIntros "!> HP". iApply ltl_eventually_next_comm.
     iCombine "HP" "HP1" as "HP".
     iModEv with "HP" as "[HP >HP1]".
@@ -80,7 +80,7 @@ Section examples.
     iIntros "!> HP". rewrite ltl_always_elim.
     iDestruct ("HP1" with "HP") as "HP".
     iIntros "!>".
-    iApply ltl_eventually_next_intro.
+    iApply ltl_eventually_intro_next.
     done.
   Qed.
 
@@ -120,7 +120,7 @@ Section examples.
     iModIntro.
     iMod "HPQ". iDestruct ("HPQ" with "HP") as "HQ".
     iCombine "HQR" "HQ" as "H". iModEv with "H" as "[HQR HQ]".
-    iApply ltl_eventually_intro. iApply "HQR". by iMod "HQ".
+    iApply ltl_eventually_intro_now. iApply "HQR". by iMod "HQ".
   Qed.
 
   Lemma foo'' (P Q R : nat → ltl_prop) :
@@ -131,7 +131,7 @@ Section examples.
     iModIntro. iDestruct "HP" as (n) "HP".
     iMod "HPQ". iDestruct ("HPQ" with "HP") as (m) "HQ".
     iCombine "HQR" "HQ" as "H". iModEv with "H" as "[HQR HQ]".
-    iApply ltl_eventually_intro. iApply "HQR". by iMod "HQ".
+    iApply ltl_eventually_intro_now. iApply "HQR". by iMod "HQ".
   Qed.
 
 End examples.
@@ -164,7 +164,7 @@ Section simple_ex.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     revert n i H1 H2. induction j; intros n i H1 H2.
-    { simplify_eq. rewrite right_id. iApply ltl_eventually_intro. }
+    { simplify_eq. rewrite right_id. iApply ltl_eventually_intro_now. }
     iIntros "H".
     iDestruct (step with "H") as "H".
     iApply ltl_next_eventually. iModIntro.
@@ -204,18 +204,18 @@ Section advanced_ex.
          iDestruct (ltl_now_false with "H1 H3") as "[]".         
          destruct b; intros [[? []]|] HP HQ; by naive_solver. }
        iDestruct "H3" as "[_ H3']".
-       iApply ltl_until_next_intro. iFrame.
-       iModIntro. iApply ltl_until_intro. done. }
+       iApply ltl_until_intro_next. iFrame.
+       iModIntro. iApply ltl_until_intro_now. done. }
     iIntros "[H1 [H2 _]] #H3".
     iDestruct (step_b with "H3") as "-#[H3'|H3']".
-    { iApply ltl_until_next_intro.
+    { iApply ltl_until_intro_next.
       iFrame "#".
       iDestruct "H3'" as "[H' H'']".
       iModIntro.
-      iApply ltl_until_intro.
+      iApply ltl_until_intro_now.
       iApply (ltl_now_mono with "H''"). done. }
     iDestruct "H3'" as "[H' H'']".
-    iApply ltl_until_next_intro.
+    iApply ltl_until_intro_next.
     iFrame "#".
     iModIntro.
     iApply "H2".
@@ -228,7 +228,7 @@ Section advanced_ex.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     revert n i b H1 H2. induction j; intros n i b H1 H2.
-    { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro. done. }
+    { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro_now. done. }
     iIntros "H".
     iDestruct (my_property'' with "H") as "H".
     iApply (ltl_until_ind with "H").
