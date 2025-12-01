@@ -773,24 +773,24 @@ Section ltl_lemmas.
 
   (** ltl_eventually lemmas *)
 
-  Lemma ltl_eventually_and (P Q : ltl_prop) :
-    (◊ (P ∧ Q)) ⊢ (◊ P) ∧ (◊ Q).
-  Proof. 
+  Lemma ltl_until_and (P Q1 Q2 : ltl_prop) :
+    (P ∪ (Q1 ∧ Q2)) ⊢ (P ∪ Q1) ∧ (P ∪ Q2).
+  Proof.
     ltl_unseal.
     constructor. unseal.
     intros tr Hconj.
     induction Hconj.
     { destruct H as [H1 H2].
       split; by constructor. }
-    { destruct H0 as [H1 H2]. split; by constructor. }
+    { destruct H0 as [H1 H2]. split; by constructor 2. }
     destruct IHHconj as [H1 H2].
     split.
     - by constructor 3.
     - by constructor 3.
   Qed.
 
-  Lemma ltl_eventually_next_comm (P : ltl_prop) :
-    (◊ ○ P) ⊣⊢ (○ ◊ P).
+  Lemma ltl_until_next_comm (P Q : ltl_prop) :
+    (○ P ∪ ○ Q) ⊣⊢ ○ (P ∪ Q).
   Proof.
     constructor.
     intros tr.
@@ -800,10 +800,10 @@ Section ltl_lemmas.
       induction HP.
       { inversion H; constructor; constructor; done. }
       { inversion H0. constructor. constructor. done. }
-      clear H. constructor.
       destruct tr as [].
-      + inversion IHHP. subst. constructor 2. unseal. done. by inversion H0.
-      + inversion IHHP. subst. constructor 3. unseal. done. done.
+      + inversion IHHP. subst. constructor. inversion H. subst. constructor 2; [done|].
+        by inversion H1.
+      + inversion IHHP. subst. inversion H. subst. constructor 3. constructor 3; done.
     - ltl_unseal.
       intros HP.
       induction HP.
@@ -814,10 +814,8 @@ Section ltl_lemmas.
         revert tr s l Heq.
         induction H; intros tr'' s' l' Heq.
         * constructor. constructor. subst. done.
-        * constructor 3; [by unseal|]. constructor. simplify_eq. constructor. done.
-        * simplify_eq.
-          constructor 3; [by unseal|].
-          by apply IHltl_until_def.
+        * simplify_eq. constructor 3; [by constructor|]. constructor. by constructor.
+        * simplify_eq. constructor 3; [by constructor|]. by apply IHltl_until_def.
   Qed.
 
   (** Misc *)
@@ -1124,6 +1122,19 @@ Section ltl_lemmas.
   Lemma ltl_eventually_mono (P Q : ltl_prop) :
     (P ⊢ Q) → (◊P) ⊢ (◊Q).
   Proof. by apply ltl_until_mono. Qed.
+
+  Lemma ltl_eventually_and (P Q : ltl_prop) :
+    (◊ (P ∧ Q)) ⊢ (◊ P) ∧ (◊ Q).
+  Proof. by rewrite -ltl_until_and. Qed.
+
+  Lemma ltl_eventually_next_comm (P : ltl_prop) :
+    (◊ ○ P) ⊣⊢ (○ ◊ P).
+  Proof.
+    rewrite -ltl_until_next_comm.
+    apply bi.equiv_entails_2.
+    - apply ltl_until_mono; [|done]. by apply ltl_next_taut.
+    - apply ltl_until_mono; [|done]. eauto.
+  Qed.
 
   Lemma ltl_eventually_idemp (P : ltl_prop) :
     (◊◊P) ⊣⊢ (◊P).
