@@ -60,67 +60,67 @@ Section ltl_constructors.
     { ltl_in_entails : ∀ tr, P tr → Q tr }.
 
   (* Primitive operators *)
-  Local Definition ltl_pure_def (P : Prop) : ltl_prop :=
+  Definition ltl_pure_def (P : Prop) : ltl_prop :=
     λ tr, P.
-  Local Definition ltl_pure_aux : seal (@ltl_pure_def).
+  Definition ltl_pure_aux : seal (@ltl_pure_def).
   Proof. by eexists. Qed.
   Definition ltl_pure := unseal ltl_pure_aux.
-  Local Definition ltl_pure_unseal :
+  Definition ltl_pure_unseal :
     @ltl_pure = @ltl_pure_def := seal_eq ltl_pure_aux.
 
-  Local Definition ltl_or_def (P Q : ltl_prop) : ltl_prop :=
+  Definition ltl_or_def (P Q : ltl_prop) : ltl_prop :=
     λ tr, P tr ∨ Q tr.
-  Local Definition ltl_or_aux : seal (@ltl_or_def).
+  Definition ltl_or_aux : seal (@ltl_or_def).
   Proof. by eexists. Qed.
   Definition ltl_or := unseal ltl_or_aux.
-  Local Definition ltl_or_unseal :
+  Definition ltl_or_unseal :
     @ltl_or = @ltl_or_def := seal_eq ltl_or_aux.
 
-  Local Definition ltl_and_def (P Q : ltl_prop) : ltl_prop :=
+  Definition ltl_and_def (P Q : ltl_prop) : ltl_prop :=
     λ tr, P tr ∧ Q tr.
-  Local Definition ltl_and_aux : seal (@ltl_and_def).
+  Definition ltl_and_aux : seal (@ltl_and_def).
   Proof. by eexists. Qed.
   Definition ltl_and := unseal ltl_and_aux.
-  Local Definition ltl_and_unseal :
+  Definition ltl_and_unseal :
     @ltl_and = @ltl_and_def := seal_eq ltl_and_aux.
 
-  Local Definition ltl_impl_def (P Q : ltl_prop) : ltl_prop :=
+  Definition ltl_impl_def (P Q : ltl_prop) : ltl_prop :=
     λ tr, P tr → Q tr.
-  Local Definition ltl_impl_aux : seal (@ltl_impl_def).
+  Definition ltl_impl_aux : seal (@ltl_impl_def).
   Proof. by eexists. Qed.
   Definition ltl_impl := unseal ltl_impl_aux.
-  Local Definition ltl_impl_unseal :
+  Definition ltl_impl_unseal :
     @ltl_impl = @ltl_impl_def := seal_eq ltl_impl_aux.
 
-  Local Definition ltl_forall_def {A} (Ψ : A → ltl_prop) : ltl_prop :=
+  Definition ltl_forall_def {A} (Ψ : A → ltl_prop) : ltl_prop :=
     λ tr, ∀ (x:A), Ψ x tr.
-  Local Definition ltl_forall_aux : seal (@ltl_forall_def).
+  Definition ltl_forall_aux : seal (@ltl_forall_def).
   Proof. by eexists. Qed.
   Definition ltl_forall {A} := unseal ltl_forall_aux A.
-  Local Definition ltl_forall_unseal :
+  Definition ltl_forall_unseal :
     @ltl_forall = @ltl_forall_def := seal_eq ltl_forall_aux.
 
-  Local Definition ltl_exist_def {A} (Ψ : A → ltl_prop) : ltl_prop :=
+  Definition ltl_exist_def {A} (Ψ : A → ltl_prop) : ltl_prop :=
     λ tr, ∃ (x:A), Ψ x tr.
-  Local Definition ltl_exist_aux : seal (@ltl_exist_def).
+  Definition ltl_exist_aux : seal (@ltl_exist_def).
   Proof. by eexists. Qed.
   Definition ltl_exist {A} := unseal ltl_exist_aux A.
-  Local Definition ltl_exist_unseal :
+  Definition ltl_exist_unseal :
     @ltl_exist = @ltl_exist_def := seal_eq ltl_exist_aux.
 
-  Local Definition ltl_later_def (P : ltl_prop) : ltl_prop := P.
-  Local Definition ltl_later_aux : seal (@ltl_later_def).
+  Definition ltl_later_def (P : ltl_prop) : ltl_prop := P.
+  Definition ltl_later_aux : seal (@ltl_later_def).
   Proof. by eexists. Qed.
   Definition ltl_later := unseal ltl_later_aux.
-  Local Definition ltl_later_unseal :
+  Definition ltl_later_unseal :
     @ltl_later = @ltl_later_def := seal_eq ltl_later_aux.
 
-  Local Definition ltl_internal_eq_def {A:ofe} (a1 a2 : A) : ltl_prop :=
+  Definition ltl_internal_eq_def {A:ofe} (a1 a2 : A) : ltl_prop :=
     λ tr, a1 ≡ a2.
-  Local Definition ltl_internal_eq_aux : seal (@ltl_internal_eq_def).
+  Definition ltl_internal_eq_aux : seal (@ltl_internal_eq_def).
   Proof. by eexists. Qed.
   Definition ltl_internal_eq {A} := unseal ltl_internal_eq_aux A.
-  Local Definition ltl_internal_eq_unseal :
+  Definition ltl_internal_eq_unseal :
     @ltl_internal_eq = @ltl_internal_eq_def := seal_eq ltl_internal_eq_aux.
 
 End ltl_constructors.
@@ -469,7 +469,7 @@ Section restate.
   Local Lemma ltl_later_unseal : bi_later = @ltl_later_def S L.
   Proof. by rewrite -ltl_later_unseal. Qed.
 
-  Local Definition ltl_unseal :=
+  Definition ltl_unseal :=
     (ltl_emp_unseal, ltl_pure_unseal, ltl_and_unseal, ltl_or_unseal,
     ltl_impl_unseal, ltl_forall_unseal, ltl_exist_unseal,
     ltl_sep_unseal, ltl_wand_unseal,
@@ -491,30 +491,30 @@ Section ltl_primitives.
   | ltl_now_empty : P None → ltl_now_def P ⟨⟩
   | ltl_now_single s : P (Some (s, None)) → ltl_now_def P ⟨ s ⟩
   | ltl_now_cons s l tr : P (Some (s,Some l)) → ltl_now_def P (s -[ l ]->  tr).
-  Local Definition ltl_now_aux : seal (@ltl_now_def).
+  Definition ltl_now_aux : seal (@ltl_now_def).
   Proof. by eexists. Qed.
   Definition ltl_now := unseal ltl_now_aux.
-  Local Definition ltl_now_unseal :
+  Definition ltl_now_unseal :
     @ltl_now = @ltl_now_def := seal_eq ltl_now_aux.
 
   Inductive ltl_next_def (P : ltl_prop) : ltl_prop :=
   | ltl_next_empty : P ⟨⟩ -> ltl_next_def P ⟨⟩
   | ltl_next_single s : P ⟨ ⟩ -> ltl_next_def P ⟨ s ⟩
   | ltl_next_cons s l tr : P (Some tr) → ltl_next_def P (s -[l]-> tr).  
-  Local Definition ltl_next_aux : seal (@ltl_next_def).
+  Definition ltl_next_aux : seal (@ltl_next_def).
   Proof. by eexists. Qed.
   Definition ltl_next := unseal ltl_next_aux.
-  Local Definition ltl_next_unseal :
+  Definition ltl_next_unseal :
     @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
 
   Inductive ltl_until_def (P Q : ltl_prop) : ltl_prop :=
   | ltl_until_here tr : Q tr -> ltl_until_def P Q tr
   | ltl_until_single s : P ⟨s⟩ → Q ⟨⟩ → ltl_until_def P Q ⟨s⟩
   | ltl_until_cons s l tr : P (s -[l]-> tr) → ltl_until_def P Q (Some tr) → ltl_until_def P Q (s -[l]-> tr).
-  Local Definition ltl_until_aux : seal (@ltl_until_def).
+  Definition ltl_until_aux : seal (@ltl_until_def).
   Proof. by eexists. Qed.
   Definition ltl_until := unseal ltl_until_aux.
-  Local Definition ltl_until_unseal :
+  Definition ltl_until_unseal :
     @ltl_until = @ltl_until_def := seal_eq ltl_until_aux.
 
   Notation ltl_eventually P := (ltl_until True P).
@@ -523,10 +523,10 @@ Section ltl_primitives.
   | ltl_always_def_empty : P ⟨⟩ → ltl_always_def P ⟨⟩
   | ltl_always_def_singl s : P ⟨ s ⟩ → P ⟨⟩ → ltl_always_def P ⟨s⟩
   | ltl_always_def_cons s l tr : P (s -[l]-> tr) → ltl_always_def P (Some tr) → ltl_always_def P (s -[l]-> tr).
-  Local Definition ltl_always_aux : seal (@ltl_always_def).
+  Definition ltl_always_aux : seal (@ltl_always_def).
   Proof. by eexists. Qed.
   Definition ltl_always := unseal ltl_always_aux.
-  Local Definition ltl_always_unseal :
+  Definition ltl_always_unseal :
     @ltl_always = @ltl_always_def := seal_eq ltl_always_aux.
 
 End ltl_primitives.
@@ -551,7 +551,7 @@ Section ltl_lemmas.
 
   Notation ltl_prop := (ltl_prop S L).
 
-  Local Definition ltl_unseal' :=
+  Definition ltl_unseal' :=
     (@ltl_pure_unseal S L, @ltl_and_unseal S L, @ltl_or_unseal S L,
        @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
          @ltl_later_unseal S L, @ltl_internal_eq_unseal S L,
@@ -1227,6 +1227,27 @@ Section ltl_lemmas.
     iIntros "(H1&H2&[_ H3])". by iApply "H2".
   Qed.
 
+  Lemma ltl_until_always_combine (P Q R : ltl_prop) :
+    (□ P ∧ (Q ∪ R)) ⊢ ((P ∧ Q) ∪ ((□ P) ∧ R)).
+  Proof.
+    apply bi.impl_elim_r'.
+    apply ltl_until_ind.
+    { iIntros "HQ HP". iApply ltl_until_intro_now. iFrame. }
+    iIntros "[H1 [H2 H3]] HP".
+    iDestruct (ltl_next_always_combine with "[HP H2]") as "#H".
+    { iSplitL "HP"; by done. }
+    iDestruct "H" as "-#H".
+    iEval (rewrite -ltl_until_idemp).
+    iEval (rewrite -ltl_until_intro_next).
+    iFrame.
+    iDestruct (ltl_always_elim with "HP") as "$".
+    iStopProof. rewrite !baz. rewrite !ltl_next_and.
+    apply ltl_next_mono.
+    iIntros "(H1&H2&[_ H3])".
+    rewrite ltl_until_idemp.
+    by iApply "H2".
+  Qed.
+
   Lemma ltl_not_always_eventually_not (P : ltl_prop) :
      (□ P) ⊢ ¬ ◊ ¬ P.
   Proof.
@@ -1559,6 +1580,14 @@ Section ltl_proofmode.
     rewrite /CombineSepAs.
     rewrite bi.sep_comm.
     apply ltl_eventually_always_combine.
+  Qed.
+
+  Global Instance ltl_until_always_combine' (P Q R : ltl_prop) :
+    CombineSepAs (P ∪ Q) (□ R) ((R ∧ P) ∪ (□ R ∧ Q)) | 100.
+  Proof.
+    rewrite /CombineSepAs.
+    rewrite bi.sep_comm.
+    apply ltl_until_always_combine.
   Qed.
 
   (* Global Instance ltl_until_combine (P1 P2 Q1 Q2 : ltl_prop) : *)

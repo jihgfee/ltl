@@ -147,28 +147,90 @@ Notation "↓l Φ" := (↓ (λ osl, match osl with
                               | None => Φ None
                               end))%I (at level 20, right associativity) : bi_scope. 
 
-Section simple_ex.
+(* TODO: Polish and move *)
+Section well_formed.
+  Context {S L : Type}.
+  Context (R : S → L → S → Prop).
 
+  Definition head_trace (tr : trace S L) : option S :=
+    match tr with
+    | Some (tr_singl s) => Some s
+    | Some (tr_cons s ℓ r) => Some s
+    | None => None
+    end.
+
+  Definition well_formed_trace (tr : trace S L) : Prop :=
+    match tr with
+    | Some (tr_singl s) => True
+    | Some (tr_cons s ℓ r) => ∃ s', head_trace (Some r) = Some s' ∧ R s ℓ s'
+    | None => True
+    end.
+
+  CoInductive trace_maximal : ltl_prop S L :=
+  | trace_maximal_empty : trace_maximal ⟨⟩
+  | trace_maximal_singleton c :
+    (∀ oζ c', ¬ R c oζ c') → trace_maximal ⟨c⟩
+  | trace_maximal_cons c oζ tr c' :
+    head_trace (Some tr) = Some c' →
+    R c oζ c' →
+    trace_maximal (c -[oζ]-> tr).
+
+  Definition well_formed_trace_always : ltl_prop S L := □ (well_formed_trace).
+  Definition trace_maximal' : ltl_prop S L := □ (trace_maximal).
+
+End well_formed.
+
+Section simple_ex.
   Definition state := nat.
   Definition label := unit.
+  Inductive steps : state → label → state → Prop :=
+    | my_step i : steps i () (i+1).
 
-  (* Inductive steps : state -> label -> state -> Prop := *)
-  (*   my_step i : steps i () (i+1). *)
+  (* TODO: Why is this needed for [unseal]? *)
+  Import ltl_prop.
 
-  (* Proven for this model *)
-  Axiom step : ∀ i, (↓s (λ os, os = Some i)) ⊢ (○ (↓s (λ os, os = Some (i+1)))):ltl_prop state label.
+  Lemma step i :
+    (well_formed_trace_always steps) ∧
+    (trace_maximal' steps) ∧
+    (↓s (λ os, os = Some i)) ⊢
+    (○ (↓s (λ os, os = Some (i+1)))):ltl_prop state label.
+  Proof.
+    constructor. intros [tr|]; last first.
+    { unseal. rewrite ltl_now_unseal.
+      intros [_ [_ H]]. inversion H. simplify_eq. }
+    unseal. rewrite ltl_now_unseal.
+    intros [Hwf [Hmax H]]. inversion H; simplify_eq.
+    - rewrite /well_formed_trace_always in Hwf. rewrite ltl_always_unseal in Hwf.
+      inversion Hwf. simplify_eq.
+      rewrite /trace_maximal' in Hmax. rewrite ltl_always_unseal in Hmax.
+      inversion Hmax. simplify_eq. inversion H3. simplify_eq.
+      specialize (H5 () (i+1)).
+      pose proof (my_step i). done.
+    - rewrite /well_formed_trace_always in Hwf. rewrite ltl_always_unseal in Hwf.
+      inversion Hwf. simplify_eq. inversion H2.
+      (* TODO: Merge *)
+      simpl in *. destruct tr0.
+      { destruct H0 as [??]. inversion H1. simplify_eq.
+        rewrite ltl_next_unseal. constructor. constructor. done. }
+      simpl in *.
+      rewrite ltl_next_unseal. constructor. constructor.
+      destruct H0 as [??]. inversion H1. simplify_eq. done.
+  Qed.
 
   Lemma my_property (n:nat) : 
+    (well_formed_trace_always steps) ∧
+    (trace_maximal' steps) ∧
     ↓s (λ os, os = Some 0) ⊢ (◊ ↓s (λ os, os = Some n)):ltl_prop nat unit.
   Proof.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     revert n i H1 H2. induction j; intros n i H1 H2.
-    { simplify_eq. rewrite right_id. iApply ltl_eventually_intro_now. }
-    iIntros "H".
-    iDestruct (step with "H") as "H".
+    { iIntros "(#Hwf & #Hmax & H)". iRevert "H". simplify_eq. rewrite right_id.
+      iApply ltl_eventually_intro_now. }
+    iIntros "(#Hwf & #Hmax & H)".
+    iDestruct (step with "[$Hwf $Hmax $H]") as "H".
     iApply ltl_next_eventually. iModIntro.
-    iDestruct (IHj with "H") as "H".
+    iDestruct (IHj with "[$Hwf $Hmax $H]") as "H".
     { instantiate (1:=n). rewrite -H1. lia. }
     { lia. }
     done.
@@ -180,58 +242,111 @@ Section advanced_ex.
 
   Definition state' : Set := nat * bool.
   Definition label' : Set := bool.
+  Inductive steps' : state' → label' → state' → Prop :=
+  | my_step_succ i b : steps' (i,b) b (i+1,negb b)
+  | my_step_fail i b : steps' (i,b) (negb b) (i,b).
 
   Axiom fair :
     ∀ (b:bool), ⊢ (◊ (↓l (λ ol, ol = Some b))):ltl_prop state' label'.
 
-  (* Proven for this model *)
-  Axiom step_b :
-    ∀ b i, (↓s (λ os, os = Some (i,b))) ⊢
+  (* TODO: Why is this needed for [unseal]? *)
+  Import ltl_prop.
+
+  Lemma step_b b i :
+    (well_formed_trace_always steps') ∧
+    (trace_maximal' steps') ∧
+    (↓s (λ os, os = Some (i,b))) ⊢
          ((↓l (λ ol, ol = Some b)) ∧ ○ (↓s (λ os, os = Some (i+1,negb b)))) ∨
            ((↓l (λ ol, ol = Some (negb b)) ∧ ○ (↓s (λ os, os = Some (i,b))))).
+  Proof.
+    constructor. intros [tr|]; last first.
+    { unseal. rewrite ltl_now_unseal.
+      intros [_ [_ H]]. inversion H. simplify_eq. }
+    unseal. rewrite ltl_now_unseal.
+    intros [Hwf [Hmax H]]. inversion H; simplify_eq.
+    - rewrite /well_formed_trace_always in Hwf. rewrite ltl_always_unseal in Hwf.
+      inversion Hwf. simplify_eq.
+      rewrite /trace_maximal' in Hmax. rewrite ltl_always_unseal in Hmax.
+      inversion Hmax. simplify_eq. inversion H3. simplify_eq.
+      specialize (H5 b ((i+1), negb b)).
+      pose proof (my_step_succ i b). done.
+    - rewrite /well_formed_trace_always in Hwf. rewrite ltl_always_unseal in Hwf.
+      inversion Hwf. simplify_eq. inversion H2.
+      (* TODO: Merge *)
+      simpl in *. rewrite ltl_next_unseal.
+      destruct tr0.
+      { destruct H0 as [??]. inversion H1; simplify_eq.
+        - constructor 1.
+          constructor.
+          + by constructor.
+          + constructor. constructor. done.
+        - constructor 2.
+          constructor.
+          + constructor. done.
+          + constructor. constructor. done. }
+      { destruct H0 as [??]. inversion H1; simplify_eq.
+        - constructor 1.
+          constructor.
+          + by constructor.
+          + constructor. constructor. done.
+        - constructor 2.
+          constructor.
+          + constructor. done.
+          + constructor. constructor. done. }
+  Qed.
 
   Lemma my_property'' i b :
+    (well_formed_trace_always steps') ∧
+    (trace_maximal' steps') ∧
     ↓s (λ os, os = Some (i,b)) ⊢
     ↓s (λ os, os = Some (i,b)) ∪ ↓s (λ os, os = Some (i+1,negb b)) : ltl_prop state' label'.
   Proof.
-    iIntros "H".    
+    iIntros "H".
     iDestruct (fair b) as "H1".
     iRevert "H".
     iApply (ltl_until_ind with "H1").
     { iIntros "H1 H2".
        iDestruct (step_b with "H2") as "#[H3|H3]"; last first.
        { iDestruct "H3" as "[H3 H3']".
-         iDestruct (ltl_now_false with "H1 H3") as "[]".         
+         iDestruct (ltl_now_false with "H1 H3") as "[]".
          destruct b; intros [[? []]|] HP HQ; by naive_solver. }
        iDestruct "H3" as "[_ H3']".
-       iApply ltl_until_intro_next. iFrame.
+       iApply ltl_until_intro_next. iDestruct "H2" as "(_&_&H)". iFrame.
        iModIntro. iApply ltl_until_intro_now. done. }
     iIntros "[H1 [H2 _]] #H3".
     iDestruct (step_b with "H3") as "-#[H3'|H3']".
     { iApply ltl_until_intro_next.
+      iDestruct "H3" as "(Hwf&Hmax&H3)".
       iFrame "#".
       iDestruct "H3'" as "[H' H'']".
       iModIntro.
       iApply ltl_until_intro_now.
       iApply (ltl_now_mono with "H''"). done. }
     iDestruct "H3'" as "[H' H'']".
+    iDestruct "H3" as "(Hwf&Hmax&H3)".
     iApply ltl_until_intro_next.
     iFrame "#".
     iModIntro.
     iApply "H2".
+    iFrame "#".
     done.
   Qed.
 
   Lemma my_property' n b :
+    (well_formed_trace_always steps') ∧
+    (trace_maximal' steps') ∧
     ↓s (λ os, os = Some (0,b)) ⊢ ∃ b, (◊ ↓s (λ os, os = Some (n,b))):ltl_prop state' label'.
   Proof.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     revert n i b H1 H2. induction j; intros n i b H1 H2.
-    { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro_now. done. }
-    iIntros "H".
-    iDestruct (my_property'' with "H") as "H".
-    iApply (ltl_until_ind with "H").
+    { simplify_eq. rewrite right_id. iIntros "(_&_&H)". iExists b. iApply ltl_eventually_intro_now. done. }
+    iIntros "#H".
+    iDestruct (my_property'' with "H") as "H'".
+    iDestruct "H" as "(#Hwf & #Hmax & H)".
+    iCombine "H'" "Hmax" as "H''".
+    iCombine "H''" "Hwf" as "H'''".
+    iApply (ltl_until_ind with "H'''").
     { iIntros "H".
       iDestruct (IHj with "H") as "H".
       { instantiate (1:=n). rewrite -H1. lia. }
