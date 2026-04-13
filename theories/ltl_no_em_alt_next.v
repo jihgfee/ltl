@@ -1228,7 +1228,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_until_always_combine (P Q R : ltl_prop) :
-    (□ P ∧ (Q ∪ R)) ⊢ ((P ∧ Q) ∪ ((□ P) ∧ R)).
+    (□ P ∧ (Q ∪ R)) ⊢ ((□ P ∧ Q) ∪ ((□ P) ∧ R)).
   Proof.
     apply bi.impl_elim_r'.
     apply ltl_until_ind.
@@ -1240,7 +1240,6 @@ Section ltl_lemmas.
     iEval (rewrite -ltl_until_idemp).
     iEval (rewrite -ltl_until_intro_next).
     iFrame.
-    iDestruct (ltl_always_elim with "HP") as "$".
     iStopProof. rewrite !baz. rewrite !ltl_next_and.
     apply ltl_next_mono.
     iIntros "(H1&H2&[_ H3])".
@@ -1583,7 +1582,7 @@ Section ltl_proofmode.
   Qed.
 
   Global Instance ltl_until_always_combine' (P Q R : ltl_prop) :
-    CombineSepAs (P ∪ Q) (□ R) ((R ∧ P) ∪ (□ R ∧ Q)) | 100.
+    CombineSepAs (P ∪ Q) (□ R) ((□ R ∧ P) ∪ (□ R ∧ Q)) | 100.
   Proof.
     rewrite /CombineSepAs.
     rewrite bi.sep_comm.

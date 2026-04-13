@@ -332,6 +332,26 @@ Section advanced_ex.
     done.
   Qed.
 
+  Lemma ltl_until_ind_alt {S L} (P P' Q R : ltl_prop S L) :
+    (□ P' ∧ Q ⊢ R) →
+    (□ P' ∧ ○ (ltl_until P Q) ∧ ○ R ∧ P ⊢ R) →
+    □ P' ∧ P ∪ Q ⊢ R.
+  Proof.
+    intros H1 H2. rewrite ltl_until_always_combine.
+    apply ltl_until_ind.
+    - done.
+    - iIntros "(H1 & H2 & H3 & H4)". iApply H2. 
+      iFrame. iModIntro. iApply (ltl_until_mono with "H1"); iIntros "[_ $]".
+  Qed.
+
+  (* Tactic Notation "iIndUntil" "with" constr(pat) := *)
+  (*   iApply (ltl_until_ind with pat); *)
+  (*   [iIntros pat|iIntros "(?&?&?)"]. *)
+
+  (* Tactic Notation "iIndUntil" "with" constr(pat1) "and" constr(pat2) := *)
+  (*   iCombine  *)
+  (*   iApply (ltl_until_ind_alt with pat). *)
+
   Lemma my_property' n b :
     (well_formed_trace_always steps') ∧
     (trace_maximal' steps') ∧
