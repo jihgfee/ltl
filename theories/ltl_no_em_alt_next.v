@@ -2,7 +2,7 @@ From iris.proofmode Require Import proofmode.
 
 Delimit Scope trace_scope with trace.
 
-CoInductive trace_aux (S L: Type) :=
+CoInductive trace_aux (S L : Type) :=
 | tr_singl (s: S)
 | tr_cons (s: S) (ℓ: L) (r: trace_aux S L).
 
@@ -51,13 +51,40 @@ Section cofe.
   Canonical Structure ltl_PropO := discreteO ltl_prop.
 End cofe.
 
+(* TODO: Polish and move *)
+Section well_formed.
+  Context {S L : Type}.
+  Context (R : S → L → S → Prop).
+
+  Definition head_trace (tr : trace S L) : option S :=
+    match tr with
+    | Some (tr_singl s) => Some s
+    | Some (tr_cons s ℓ r) => Some s
+    | None => None
+    end.
+
+  CoInductive trace_maximal : ltl_prop S L :=
+  | trace_maximal_empty : trace_maximal ⟨⟩
+  | trace_maximal_singleton c :
+    (∀ oζ c', ¬ R c oζ c') → trace_maximal ⟨c⟩
+  | trace_maximal_cons c oζ tr c' :
+    head_trace (Some tr) = Some c' →
+    R c oζ c' →
+    trace_maximal (Some tr) →
+    trace_maximal (c -[oζ]-> tr).
+
+  Definition well_formed_trace : ltl_prop S L := trace_maximal.
+
+End well_formed.
+
 Section ltl_constructors.
   Context {S L : Type}.
+  Context (R : S → L → S → Prop).
   Notation ltl_prop := (ltl_prop S L).
   Implicit Type P Q : ltl_prop.
 
   Inductive ltl_entails (P Q : ltl_prop) : Prop :=
-    { ltl_in_entails : ∀ tr, P tr → Q tr }.
+    { ltl_in_entails : ∀ tr, well_formed_trace R tr → P tr → Q tr }.
 
   (* Primitive operators *)
   Definition ltl_pure_def (P : Prop) : ltl_prop :=
@@ -129,6 +156,7 @@ Module ltl_primitive.
 
 Section primitive.
   Context {S L : Type}.
+  Context {R : S → L → S → Prop}.
 
   Implicit Type P : ltl_prop S L.
 
@@ -159,14 +187,14 @@ Section primitive.
   in this file. *)
 
   (** Entailment *)
-  Lemma entails_po : PreOrder (@ltl_entails S L).
+  Lemma entails_po : PreOrder (@ltl_entails S L R).
   Proof.
     split.
     - intros P; by split=> i.
-    - intros P Q Q' HP HQ; split=> i ?; by apply HQ, HP.
+    - intros P Q Q' HP HQ; split=> i ? ?. by apply HQ, HP.
   Qed.
-  Lemma entails_anti_symm : AntiSymm (≡) (@ltl_entails S L).
-  Proof. intros P Q HPQ HQP; split=> n; by split; [apply HPQ|apply HQP]. Qed.
+  Lemma entails_anti_symm : AntiSymm (≡) (@ltl_entails S L R).
+  Proof. intros P Q HPQ HQP; split=> n. by split; [apply HPQ|apply HQP]. Qed.
   Lemma equiv_entails (P Q : ltl_prop S L) : (P ≡ Q) ↔ (P ⊢ Q) ∧ (Q ⊢ P).
   Proof.
     split.

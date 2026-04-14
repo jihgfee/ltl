@@ -147,31 +147,6 @@ Notation "↓l Φ" := (↓ (λ osl, match osl with
                               | None => Φ None
                               end))%I (at level 20, right associativity) : bi_scope. 
 
-(* TODO: Polish and move *)
-Section well_formed.
-  Context {S L : Type}.
-  Context (R : S → L → S → Prop).
-
-  Definition head_trace (tr : trace S L) : option S :=
-    match tr with
-    | Some (tr_singl s) => Some s
-    | Some (tr_cons s ℓ r) => Some s
-    | None => None
-    end.
-
-  CoInductive trace_maximal : ltl_prop S L :=
-  | trace_maximal_empty : trace_maximal ⟨⟩
-  | trace_maximal_singleton c :
-    (∀ oζ c', ¬ R c oζ c') → trace_maximal ⟨c⟩
-  | trace_maximal_cons c oζ tr c' :
-    head_trace (Some tr) = Some c' →
-    R c oζ c' →
-    trace_maximal (c -[oζ]-> tr).
-
-  Definition well_formed_trace : ltl_prop S L := □ (trace_maximal).
-
-End well_formed.
-
 Section simple_ex.
   Definition state := nat.
   Definition label := unit.
