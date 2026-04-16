@@ -2,21 +2,14 @@ From iris.proofmode Require Import proofmode.
 
 Delimit Scope trace_scope with trace.
 
-
-CoInductive trace_aux (S L : Type) (R : S → L → S → Prop) : Type :=
-| tr_singl : ∀ (s:S), (∀ oζ c', ¬ R s oζ c') → trace_aux S L R
-| tr_cons : ∀ (s:S) (ℓ:L) (tr:trace_aux S L R), 
-  R s ℓ (match tr with | tr_singl s _ => s | tr_cons s ℓ tr _ => s end) →
-  trace_aux S L R.
-
-with head_trace (tr : trace_aux S L R) : option S :=
-  match tr with
-  | Some (tr_singl s) => Some s
-  | Some (tr_cons s ℓ r) => Some s
-  | None => None
-  end.
+CoInductive trace_aux (S L : Type) :=
+| tr_singl (s: S)
+| tr_cons (s: S) (ℓ: L) (r: trace_aux S L).
 
 Definition trace (S L : Type) := option $ trace_aux S L.
+
+Arguments tr_singl {_} {_} _.
+Arguments tr_cons {_} {_} _ _ _.
 
 Bind Scope trace_scope with trace.
 
@@ -26,6 +19,47 @@ Notation "⟨ ⟩" := (None) : trace_scope.
 Notation "⟨ s ⟩" := (Some (tr_singl s)) : trace_scope.
 Notation "s -[ ℓ ]->  r" := (Some (tr_cons s ℓ r)) (at level 33) : trace_scope.
 Open Scope trace.
+
+(* TODO: Polish and move *)
+Section well_formed.
+  Context {S L : Type}.
+  Context (R : S → L → S → Prop).
+
+  Definition head_trace (tr : trace S L) : option S :=
+    match tr with
+    | Some (tr_singl s) => Some s
+    | Some (tr_cons s ℓ r) => Some s
+    | None => None
+    end.
+
+  (* Inductive foo {A} (P : A → SProp) : A -> SProp := *)
+  (*   | Foo a : P a → foo P a. *)
+
+  (* Lemma bar {A} (P : A → SProp) a : *)
+  (*   foo P a -> P a. *)
+  (* Proof. inversion 1. done. Qed. *)
+
+  CoInductive trace_maximal : trace S L → SProp :=
+  | trace_maximal_empty : trace_maximal None
+  | trace_maximal_singleton c :
+    (∀ oζ c', ¬ R c oζ c') → trace_maximal (Some $ tr_singl c)
+  | trace_maximal_cons c oζ tr c' :
+    head_trace (Some tr) = Some c' →
+    R c oζ c' →
+    trace_maximal (Some tr) →
+    trace_maximal (Some $ tr_cons c oζ tr).
+
+  (* Lemma foo s : trace_maximal ⟨ s ⟩ -> (∀ l s', ¬ R s l s'). *)
+  (* Proof. inversion 1. *)
+
+  (* Definition well_formed_trace : trace S L → Prop := trace_maximal. *)
+
+End well_formed.
+
+Record wf_trace S L R := Trace {
+  tr_car : trace S L;
+  tr_wf : trace_maximal R tr_car;
+}.
 
 Section trace.
   Context {St L: Type}.
@@ -43,15 +77,15 @@ Section trace.
 
 End trace.
 
-Definition ltl_prop S L := trace S L → Prop.
+Definition ltl_prop S L R := wf_trace S L R → Prop.
 
 Bind Scope bi_scope with ltl_prop.
 Bind Scope bi_scope with trace.
 
 Section cofe.
   Context {S L : Type}.
-
-  Notation ltl_prop := (@ltl_prop S L).
+  Context {R : S → L → S → Prop}.
+  Notation ltl_prop := (@ltl_prop S L R).
 
   Inductive ltl_prop_equiv' (P Q : ltl_prop) : Prop :=
     { ltl_prop_in_equiv : ∀ tr, P tr ↔ Q tr }.
@@ -61,40 +95,14 @@ Section cofe.
   Canonical Structure ltl_PropO := discreteO ltl_prop.
 End cofe.
 
-(* TODO: Polish and move *)
-Section well_formed.
-  Context {S L : Type}.
-  Context (R : S → L → S → Prop).
-
-  Definition head_trace (tr : trace S L) : option S :=
-    match tr with
-    | Some (tr_singl s) => Some s
-    | Some (tr_cons s ℓ r) => Some s
-    | None => None
-    end.
-
-  CoInductive trace_maximal : ltl_prop S L :=
-  | trace_maximal_empty : trace_maximal ⟨⟩
-  | trace_maximal_singleton c :
-    (∀ oζ c', ¬ R c oζ c') → trace_maximal ⟨c⟩
-  | trace_maximal_cons c oζ tr c' :
-    head_trace (Some tr) = Some c' →
-    R c oζ c' →
-    trace_maximal (Some tr) →
-    trace_maximal (c -[oζ]-> tr).
-
-  Definition well_formed_trace : ltl_prop S L := trace_maximal.
-
-End well_formed.
-
 Section ltl_constructors.
   Context {S L : Type}.
-  Context (R : S → L → S → Prop).
-  Notation ltl_prop := (ltl_prop S L).
+  Context {R : S → L → S → Prop}.
+  Notation ltl_prop := (ltl_prop S L R).
   Implicit Type P Q : ltl_prop.
 
   Inductive ltl_entails (P Q : ltl_prop) : Prop :=
-    { ltl_in_entails : ∀ tr, well_formed_trace R tr → P tr → Q tr }.
+    { ltl_in_entails : ∀ tr, P tr → Q tr }.
 
   (* Primitive operators *)
   Definition ltl_pure_def (P : Prop) : ltl_prop :=
@@ -166,14 +174,15 @@ Module ltl_primitive.
 
 Section primitive.
   Context {S L : Type}.
-  Context {R : S → L → S → Prop}.
+  Context {Rel : S → L → S → Prop}.
 
-  Implicit Type P : ltl_prop S L.
+  Notation ltl_prop := (ltl_prop S L Rel).
+  Implicit Type P Q : ltl_prop.
 
   Definition ltl_unseal :=
-    (@ltl_pure_unseal S L, @ltl_and_unseal S L, @ltl_or_unseal S L,
-       @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
-         @ltl_later_unseal S L, @ltl_internal_eq_unseal S L).
+    (@ltl_pure_unseal S L Rel, @ltl_and_unseal S L Rel, @ltl_or_unseal S L Rel,
+       @ltl_impl_unseal S L Rel, @ltl_forall_unseal S L Rel, @ltl_exist_unseal S L Rel,
+         @ltl_later_unseal S L Rel, @ltl_internal_eq_unseal S L Rel).
 
   Ltac unseal := rewrite !ltl_unseal /=.
 
@@ -197,15 +206,16 @@ Section primitive.
   in this file. *)
 
   (** Entailment *)
-  Lemma entails_po : PreOrder (@ltl_entails S L R).
+  Lemma entails_po : PreOrder (@ltl_entails S L Rel).
   Proof.
     split.
     - intros P; by split=> i.
-    - intros P Q Q' HP HQ; split=> i ? ?. by apply HQ, HP.
+    - intros P Q Q' HP HQ.
+      split=> ? ?. by apply HQ, HP.
   Qed.
-  Lemma entails_anti_symm : AntiSymm (≡) (@ltl_entails S L R).
+  Lemma entails_anti_symm : AntiSymm (≡) (@ltl_entails S L Rel).
   Proof. intros P Q HPQ HQP; split=> n. by split; [apply HPQ|apply HQP]. Qed.
-  Lemma equiv_entails (P Q : ltl_prop S L) : (P ≡ Q) ↔ (P ⊢ Q) ∧ (Q ⊢ P).
+  Lemma equiv_entails (P Q : ltl_prop) : (P ≡ Q) ↔ (P ⊢ Q) ∧ (Q ⊢ P).
   Proof.
     split.
     - intros HPQ; split; split=> i; apply HPQ.
@@ -213,35 +223,35 @@ Section primitive.
   Qed.
 
   (** Non-expansiveness and setoid morphisms *)
-  Lemma pure_ne n : Proper (iff ==> dist n) (@ltl_pure S L).
+  Lemma pure_ne n : Proper (iff ==> dist n) (@ltl_pure S L Rel).
   Proof. intros φ1 φ2 Hφ. by unseal. Qed.
-  Lemma and_ne : NonExpansive2 (@ltl_and S L).
+  Lemma and_ne : NonExpansive2 (@ltl_and S L Rel).
   Proof.
     intros n P P' HP Q Q' HQ; unseal; split=> ?.
     split; (intros [??]; split; [by apply HP|by apply HQ]).
   Qed.
-  Lemma or_ne : NonExpansive2 (@ltl_or S L).
+  Lemma or_ne : NonExpansive2 (@ltl_or S L Rel).
   Proof.
     intros n P P' HP Q Q' HQ; split=> ?.
     unseal; split; (intros [?|?]; [left; by apply HP|right; by apply HQ]).
   Qed.
-  Lemma impl_ne : NonExpansive2 (@ltl_impl S L).
+  Lemma impl_ne : NonExpansive2 (@ltl_impl S L Rel).
   Proof.
     intros n P P' HP Q Q' HQ; split=> ?.
     unseal; split; intros HPQ ?; apply HQ, HPQ, HP; auto with lia.
   Qed.
   Lemma forall_ne A n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (@ltl_forall S L A).
+    Proper (pointwise_relation _ (dist n) ==> dist n) (@ltl_forall S L Rel A).
   Proof.
      by intros Ψ1 Ψ2 HΨ; unseal; split=> x; split; intros HP a; apply HΨ.
   Qed.
   Lemma exist_ne A n :
-    Proper (pointwise_relation _ (dist n) ==> dist n) (@ltl_exist S L A).
+    Proper (pointwise_relation _ (dist n) ==> dist n) (@ltl_exist S L Rel A).
   Proof.
     intros Ψ1 Ψ2 HΨ.
     unseal; split=> ?; split; intros [a ?]; exists a; by apply HΨ.
   Qed.
-  Lemma later_ne : NonExpansive (@ltl_later S L).
+  Lemma later_ne : NonExpansive (@ltl_later S L Rel).
   Proof. unseal; intros n P Q HPQ. rewrite /ltl_later_def. done. Qed.
 
   (** Introduction and elimination rules *)
@@ -249,9 +259,9 @@ Section primitive.
   Proof. intros ?. unseal; by split. Qed.
   Lemma pure_elim' (φ : Prop) P : (φ → True ⊢ P) → ⌜ φ ⌝ ⊢ P.
   Proof. unseal=> HP; split=> n ?. by apply HP. Qed.
-  (* Lemma test {A} (φ : A → ltl_prop S L) : ⊢ (∀ a, φ a)%ltl. *)
+  (* Lemma test {A} (φ : A → ltl_prop S L Rel) : ⊢ (∀ a, φ a)%ltl. *)
   Lemma pure_forall_2 {A} (φ : A → Prop) :
-    ((∀ a, ⌜ φ a ⌝):ltl_prop S L) ⊢ ⌜ ∀ a, φ a ⌝.
+    ((∀ a, ⌜ φ a ⌝):ltl_prop) ⊢ ⌜ ∀ a, φ a ⌝.
   Proof. by unseal. Qed.
 
   Lemma and_elim_l P Q : P ∧ Q ⊢ P.
@@ -285,14 +295,14 @@ Section primitive.
   Lemma impl_elim_l' P Q R : (P ⊢ Q → R) → P ∧ Q ⊢ R.
   Proof. unseal=> HP; split=> tr [??]. by apply HP. Qed.
 
-  Lemma forall_intro {A} P (Ψ : A → ltl_prop S L) : (∀ a, P ⊢ Ψ a) → P ⊢ ∀ a, Ψ a.
+  Lemma forall_intro {A} P (Ψ : A → ltl_prop) : (∀ a, P ⊢ Ψ a) → P ⊢ ∀ a, Ψ a.
   Proof. unseal; intros HPΨ; split=> n ? a; by apply HPΨ. Qed.
-  Lemma forall_elim {A} {Ψ : A → ltl_prop S L} a : (∀ a, Ψ a) ⊢ Ψ a.
+  Lemma forall_elim {A} {Ψ : A → ltl_prop} a : (∀ a, Ψ a) ⊢ Ψ a.
   Proof. unseal; split=> n HP; apply HP. Qed.
 
-  Lemma exist_intro {A} {Ψ : A → ltl_prop S L} a : Ψ a ⊢ ∃ a, Ψ a.
+  Lemma exist_intro {A} {Ψ : A → ltl_prop} a : Ψ a ⊢ ∃ a, Ψ a.
   Proof. unseal; split=> n ?; by exists a. Qed.
-  Lemma exist_elim {A} (Φ : A → ltl_prop S L) Q : (∀ a, Φ a ⊢ Q) → (∃ a, Φ a) ⊢ Q.
+  Lemma exist_elim {A} (Φ : A → ltl_prop) Q : (∀ a, Φ a ⊢ Q) → (∃ a, Φ a) ⊢ Q.
   Proof. unseal; intros HΨ; split=> n [a ?]; by apply HΨ with a. Qed.
 
   (** Later *)
@@ -302,9 +312,9 @@ Section primitive.
   Lemma later_intro P : P ⊢ ▷ P.
   Proof. unseal; split=> /= HP. done. Qed.
 
-  Lemma later_forall_2 {A} (Φ : A → ltl_prop S L) : (∀ a, ▷ Φ a) ⊢ ▷ ∀ a, Φ a.
+  Lemma later_forall_2 {A} (Φ : A → ltl_prop) : (∀ a, ▷ Φ a) ⊢ ▷ ∀ a, Φ a.
   Proof. unseal; by split. Qed.
-  Lemma later_exist_false {A} (Φ : A → ltl_prop S L) :
+  Lemma later_exist_false {A} (Φ : A → ltl_prop) :
     (▷ ∃ a, Φ a) ⊢ ▷ False ∨ (∃ a, ▷ Φ a).
   Proof. unseal; split=> tr /=; eauto. rewrite /ltl_later_def.
          intros [a Ha]. right. exists a. done.
@@ -318,7 +328,7 @@ Section primitive.
   (** Equality *)
   Lemma internal_eq_refl {A : ofe} P (a : A) : P ⊢ (a ≡ a).
   Proof. unseal; split=> n ? /=. rewrite /ltl_internal_eq_def. done. Qed.
-  Lemma internal_eq_rewrite {A : ofe} a b (Ψ : A → ltl_prop S L) :
+  Lemma internal_eq_rewrite {A : ofe} a b (Ψ : A → ltl_prop) :
     NonExpansive Ψ → a ≡ b ⊢ Ψ a → Ψ b.
   Proof.
     intros Hnonexp. unseal; split=> tr Hab HΨ.
@@ -334,17 +344,20 @@ Import ltl_primitive.
 
 Section ltl.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
-  Definition ltl_emp : ltl_prop S L := ltl_pure True.
-  Definition ltl_persistently {S L} (P : ltl_prop S L) : ltl_prop S L := P.
-  Definition ltl_plainly {S L} (P : ltl_prop S L) : ltl_prop S L := P.
+  Notation ltl_prop := (ltl_prop S L Rel).
+
+  Definition ltl_emp : ltl_prop := ltl_pure True.
+  Definition ltl_persistently (P : ltl_prop) : ltl_prop := P.
+  Definition ltl_plainly (P : ltl_prop) : ltl_prop := P.
 
   Local Existing Instance entails_po.
 
   Lemma ltl_bi_mixin :
     BiMixin
       ltl_entails ltl_emp ltl_pure ltl_and ltl_or ltl_impl
-      (@ltl_forall S L) (@ltl_exist S L) ltl_and ltl_impl.
+      (@ltl_forall S L Rel) (@ltl_exist S L Rel) ltl_and ltl_impl.
   Proof.
     split.
     - exact: entails_po.
@@ -395,7 +408,7 @@ Section ltl.
   Lemma ltl_bi_persistently_mixin :
     BiPersistentlyMixin
       ltl_entails ltl_emp ltl_and
-      (@ltl_exist S L) ltl_and ltl_persistently.
+      (@ltl_exist S L Rel) ltl_and ltl_persistently.
   Proof.
     split.
     - solve_proper.
@@ -418,7 +431,7 @@ Section ltl.
   Lemma ltl_bi_later_mixin :
     BiLaterMixin
       ltl_entails ltl_pure ltl_or ltl_impl
-      (@ltl_forall S L) (@ltl_exist S L) ltl_and ltl_persistently ltl_later.
+      (@ltl_forall S L Rel) (@ltl_exist S L Rel) ltl_and ltl_persistently ltl_later.
   Proof.
     split.
     - exact: later_ne.
@@ -450,24 +463,25 @@ Section ltl.
 
 End ltl.
 
-Canonical Structure ltlI {S L : Type} : bi :=
-  {| bi_ofe_mixin := ofe_mixin_of (ltl_prop S L);
+Canonical Structure ltlI {S L : Type} {Rel} : bi :=
+  {| bi_ofe_mixin := ofe_mixin_of (ltl_prop S L Rel);
     bi_bi_mixin := ltl_bi_mixin;
     bi_bi_persistently_mixin := ltl_bi_persistently_mixin;
     bi_bi_later_mixin := ltl_bi_later_mixin |}.
 
 Section ltl.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
-  Global Instance ltl_pure_forall : BiPureForall (@ltlI S L).
+  Global Instance ltl_pure_forall : BiPureForall (@ltlI S L Rel).
   Proof. exact: @pure_forall_2. Qed.
 
-  Global Instance ltl_affine : BiAffine (@ltlI S L) | 0.
+  Global Instance ltl_affine : BiAffine (@ltlI S L Rel) | 0.
   Proof. intros P. exact: pure_intro. Qed.
   (* Also add this to the global hint database, otherwise [eauto] won't work for
 many lemmas that have [BiAffine] as a premise. *)
 
-  Global Instance ltl_persistent (P : ltl_prop S L) : Persistent P.
+  Global Instance ltl_persistent (P : ltl_prop S L Rel) : Persistent P.
   Proof. done. Qed.
 
 End ltl.
@@ -481,30 +495,31 @@ Global Hint Immediate ltl_affine : core.
 Module ltl_prop.
 Section restate.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
   (** We restate the unsealing lemmas so that they also unfold the BI layer. The *)
 (*   sealing lemmas are partially applied so that they also work under binders. *)
-  Local Lemma ltl_emp_unseal : bi_emp = @ltl_pure_def S L True.
+  Local Lemma ltl_emp_unseal : bi_emp = @ltl_pure_def S L Rel True.
   Proof. by rewrite -ltl_pure_unseal. Qed.
-  Local Lemma ltl_pure_unseal : bi_pure = @ltl_pure_def S L.
+  Local Lemma ltl_pure_unseal : bi_pure = @ltl_pure_def S L Rel.
   Proof. by rewrite -ltl_pure_unseal. Qed.
-  Local Lemma ltl_and_unseal : bi_and = @ltl_and_def S L.
+  Local Lemma ltl_and_unseal : bi_and = @ltl_and_def S L Rel.
   Proof. by rewrite -ltl_and_unseal. Qed.
-  Local Lemma ltl_or_unseal : bi_or = @ltl_or_def S L.
+  Local Lemma ltl_or_unseal : bi_or = @ltl_or_def S L Rel.
   Proof. by rewrite -ltl_or_unseal. Qed.
-  Local Lemma ltl_impl_unseal : bi_impl = @ltl_impl_def S L.
+  Local Lemma ltl_impl_unseal : bi_impl = @ltl_impl_def S L Rel.
   Proof. by rewrite -ltl_impl_unseal. Qed.
-  Local Lemma ltl_forall_unseal : @bi_forall _ = @ltl_forall_def S L.
+  Local Lemma ltl_forall_unseal : @bi_forall _ = @ltl_forall_def S L Rel.
   Proof. by rewrite -ltl_forall_unseal. Qed.
-  Local Lemma ltl_exist_unseal : @bi_exist _ = @ltl_exist_def S L.
+  Local Lemma ltl_exist_unseal : @bi_exist _ = @ltl_exist_def S L Rel.
   Proof. by rewrite -ltl_exist_unseal. Qed.
-  Local Lemma ltl_sep_unseal : bi_sep = @ltl_and_def S L.
+  Local Lemma ltl_sep_unseal : bi_sep = @ltl_and_def S L Rel.
   Proof. by rewrite -ltl_and_unseal. Qed.
-  Local Lemma ltl_wand_unseal : bi_wand = @ltl_impl_def S L.
+  Local Lemma ltl_wand_unseal : bi_wand = @ltl_impl_def S L Rel.
   Proof. by rewrite -ltl_impl_unseal. Qed.
-  Local Lemma ltl_persistently_unseal : bi_persistently = @ltl_persistently S L.
+  Local Lemma ltl_persistently_unseal : bi_persistently = @ltl_persistently S L Rel.
   Proof. done. Qed.
-  Local Lemma ltl_later_unseal : bi_later = @ltl_later_def S L.
+  Local Lemma ltl_later_unseal : bi_later = @ltl_later_def S L Rel.
   Proof. by rewrite -ltl_later_unseal. Qed.
 
   Definition ltl_unseal :=
@@ -520,25 +535,58 @@ End ltl_prop.
 
 Section ltl_primitives.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
-  Notation ltl_prop := (ltl_prop S L).
+  Notation ltl_prop := (ltl_prop S L Rel).
+
+  (* Notation "⟨ ⟩" := (Trace None trace_maximal_empty) : trace_scope. *)
+
+  (* Lemma tr_singl_wf : trace_maximal Rel ⟨⟩. *)
+  (* Proof. constructor. Qed. *)
+
+  Arguments Trace {_ _ _} _ _.
+  Arguments tr_car {_ _ _} _.
+  Arguments tr_wf {_ _ _} _.
+  Arguments trace_maximal_empty {_ _ _}.
+  Arguments trace_maximal_singleton {_ _ _} _ _.
 
   (* LTL Operators *)
   (* Primitive operators *)
   Inductive ltl_now_def (P : option (S * option L) → Prop) : ltl_prop :=
-  | ltl_now_empty : P None → ltl_now_def P ⟨⟩
-  | ltl_now_single s : P (Some (s, None)) → ltl_now_def P ⟨ s ⟩
-  | ltl_now_cons s l tr : P (Some (s,Some l)) → ltl_now_def P (s -[ l ]->  tr).
+  | ltl_now_empty tr : tr_car tr = ⟨⟩ → P None → ltl_now_def P tr
+  | ltl_now_single s tr : tr_car tr = ⟨s⟩ → P (Some (s, None)) → ltl_now_def P tr
+  | ltl_now_cons s l tr' tr : tr_car tr = (s -[ l ]-> tr') → P (Some (s,Some l)) → ltl_now_def P tr.
   Definition ltl_now_aux : seal (@ltl_now_def).
   Proof. by eexists. Qed.
   Definition ltl_now := unseal ltl_now_aux.
   Definition ltl_now_unseal :
     @ltl_now = @ltl_now_def := seal_eq ltl_now_aux.
 
+  (* Lemma trace_maximal_tail (tr : wf_trace S L Rel) s l tr' : *)
+  (*   tr_car tr = Some $ tr_cons s l tr' → trace_maximal Rel (Some tr'). *)
+  (* Proof. Admitted. *)
+
+  (* Program Definition tr_tail (tr : wf_trace S L Rel) : option $ wf_trace S L Rel := *)
+  (*   match tr with *)
+  (*   | {| tr_car := None; tr_wf := P |} => None *)
+  (*   | {| tr_car := Some (tr_singl _); tr_wf := P |} => None *)
+  (*   | {| tr_car := Some (tr_cons s l tr'); tr_wf := P |} => Some (Trace (Some tr') (trace_maximal_tail tr s l tr' _)) *)
+  (*   end. *)
+  (* Next Obligation. *)
+  (*   intros. subst. simpl. done. *)
+  (* Qed. *)
+
   Inductive ltl_next_def (P : ltl_prop) : ltl_prop :=
-  | ltl_next_empty : P ⟨⟩ -> ltl_next_def P ⟨⟩
-  | ltl_next_single s : P ⟨ ⟩ -> ltl_next_def P ⟨ s ⟩
-  | ltl_next_cons s l tr : P (Some tr) → ltl_next_def P (s -[l]-> tr).  
+  | ltl_next_empty H1 H2 : P (Trace ⟨⟩ H1) -> ltl_next_def P (Trace ⟨⟩ H2)
+  | ltl_next_single s H1 H2 : P (Trace ⟨⟩ H1) -> ltl_next_def P (Trace ⟨s⟩ H2)
+  | ltl_next_cons s l tr H1 H2 :
+    P (Trace (Some tr) H1) →
+    ltl_next_def P (Trace (s -[ l ]-> tr) H2).
+
+  (* Inductive ltl_next_def (P : ltl_prop) : ltl_prop := *)
+  (* | ltl_next_empty tr : tr_car tr = ⟨⟩ → P tr -> ltl_next_def P tr *)
+  (* | ltl_next_single s tr : tr_car tr = ⟨s⟩  → P (Trace None trace_maximal_empty) -> ltl_next_def P tr *)
+  (* | ltl_next_cons s l tr' tr : ∀ (H:tr_car tr = (s -[ l ]-> tr')), P (Trace (Some tr') (trace_maximal_tail tr s l tr' H)) → ltl_next_def P tr. *)
   Definition ltl_next_aux : seal (@ltl_next_def).
   Proof. by eexists. Qed.
   Definition ltl_next := unseal ltl_next_aux.
@@ -546,9 +594,9 @@ Section ltl_primitives.
     @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
 
   Inductive ltl_until_def (P Q : ltl_prop) : ltl_prop :=
-  | ltl_until_here tr : Q tr -> ltl_until_def P Q tr
-  | ltl_until_single s : P ⟨s⟩ → Q ⟨⟩ → ltl_until_def P Q ⟨s⟩
-  | ltl_until_cons s l tr : P (s -[l]-> tr) → ltl_until_def P Q (Some tr) → ltl_until_def P Q (s -[l]-> tr).
+  | ltl_until_here tr H1 H2 : Q (Trace tr H1) -> ltl_until_def P Q (Trace tr H2)
+  | ltl_until_single s H1 H2 H3 : P (Trace ⟨s⟩ H1) → Q (Trace ⟨⟩ H2) → ltl_until_def P Q (Trace ⟨s⟩ H3)
+  | ltl_until_cons s l tr H1 H2 H3 : P (Trace (s -[l]-> tr) H1) → ltl_until_def P Q (Trace (Some tr) H2) → ltl_until_def P Q (Trace (s -[l]-> tr) H3).
   Definition ltl_until_aux : seal (@ltl_until_def).
   Proof. by eexists. Qed.
   Definition ltl_until := unseal ltl_until_aux.
@@ -557,10 +605,12 @@ Section ltl_primitives.
 
   Notation ltl_eventually P := (ltl_until True P).
 
+  Notation "tr @ tr_wf" := (Trace tr tr_wf) (at level 100).
+
   CoInductive ltl_always_def (P : ltl_prop) : ltl_prop :=
-  | ltl_always_def_empty : P ⟨⟩ → ltl_always_def P ⟨⟩
-  | ltl_always_def_singl s : P ⟨ s ⟩ → P ⟨⟩ → ltl_always_def P ⟨s⟩
-  | ltl_always_def_cons s l tr : P (s -[l]-> tr) → ltl_always_def P (Some tr) → ltl_always_def P (s -[l]-> tr).
+  | ltl_always_def_empty H1 H2 : P (⟨⟩ @ H1) → ltl_always_def P (Trace ⟨⟩ H2)
+  | ltl_always_def_singl s H1 H2 H3 : P (Trace ⟨ s ⟩ H1) → P (Trace ⟨⟩ H2) → ltl_always_def P (Trace ⟨s⟩ H3)
+  | ltl_always_def_cons s l tr H1 H2 H3 : P (s -[l]-> tr @ H1) → ltl_always_def P (Some tr @ H2) → ltl_always_def P (s -[l]-> tr @ H3).
   Definition ltl_always_aux : seal (@ltl_always_def).
   Proof. by eexists. Qed.
   Definition ltl_always := unseal ltl_always_aux.
@@ -586,8 +636,9 @@ Notation "'□^?' p P" := (bi_intuitionistically_if p P) (at level 20, p at leve
 
 Section ltl_lemmas.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
-  Notation ltl_prop := (ltl_prop S L).
+  Notation ltl_prop := (ltl_prop S L Rel).
 
   Definition ltl_unseal' :=
     (@ltl_pure_unseal S L, @ltl_and_unseal S L, @ltl_or_unseal S L,
@@ -600,75 +651,74 @@ Section ltl_lemmas.
 
   Import ltl_prop.
 
+  (* Lemma ltl_next_adequacy (P : ltl_prop) (tr : trace S L) : *)
+  (*   (⊢ ○ P) → P (after 1 tr). *)
+  (* Proof. *)
+  (*   ltl_unseal. intros [HP]. *)
+  (*   assert (ltl_next_def P tr). *)
+  (*   { apply HP. unseal. done. } *)
+  (*   inversion H. *)
+  (*   - done. *)
+  (*   - done. *)
+  (*   - done. *)
+  (* Qed. *)
 
-  Lemma ltl_next_adequacy (P : ltl_prop) (tr : trace S L) :
-    (⊢ ○ P) → P (after 1 tr).
-  Proof.
-    ltl_unseal. intros [HP].
-    assert (ltl_next_def P tr).
-    { apply HP. unseal. done. }
-    inversion H.
-    - done.
-    - done.
-    - done.
-  Qed.
+  (* Lemma ltl_eventually_adequacy (P : ltl_prop) (tr : trace S L) : *)
+  (*   (⊢ ◊ P) → ∃ n, P (after n tr). *)
+  (* Proof. *)
+  (*   ltl_unseal. intros [HP]. *)
+  (*   assert (ltl_until_def True P tr) as HP'. *)
+  (*   { apply HP. unseal. done. } *)
+  (*   clear HP. *)
+  (*   induction HP'. *)
+  (*   - exists 0. done.  *)
+  (*   - exists 1. simpl. done.  *)
+  (*   - destruct IHHP' as [n HP'']. *)
+  (*     exists (1+n). simpl. done. *)
+  (* Qed. *)
 
-  Lemma ltl_eventually_adequacy (P : ltl_prop) (tr : trace S L) :
-    (⊢ ◊ P) → ∃ n, P (after n tr).
-  Proof.
-    ltl_unseal. intros [HP].
-    assert (ltl_until_def True P tr) as HP'.
-    { apply HP. unseal. done. }
-    clear HP.
-    induction HP'.
-    - exists 0. done. 
-    - exists 1. simpl. done. 
-    - destruct IHHP' as [n HP''].
-      exists (1+n). simpl. done.
-  Qed.
+  (* Definition get_state (tr : trace S L) : option (S * option L) := *)
+  (*   match tr with *)
+  (*   | ⟨⟩ => None *)
+  (*   | ⟨s⟩ => Some (s,None) *)
+  (*   | s -[ ℓ ]-> tr => Some (s,Some ℓ) *)
+  (*   end. *)
 
-  Definition get_state (tr : trace S L) : option (S * option L) :=
-    match tr with
-    | ⟨⟩ => None
-    | ⟨s⟩ => Some (s,None)
-    | s -[ ℓ ]-> tr => Some (s,Some ℓ)
-    end.
+  (* Lemma ltl_now_adequacy P (tr : trace S L) : *)
+  (*   (⊢ ↓ P) → P $ get_state tr. *)
+  (* Proof. *)
+  (*   ltl_unseal. intros [HP]. *)
+  (*   assert (ltl_now_def P tr) as HP'. *)
+  (*   { apply HP. unseal. done. } *)
+  (*   revert HP'. destruct tr as [[]|]; by inversion 1. *)
+  (* Qed. *)
 
-  Lemma ltl_now_adequacy P (tr : trace S L) :
-    (⊢ ↓ P) → P $ get_state tr.
-  Proof.
-    ltl_unseal. intros [HP].
-    assert (ltl_now_def P tr) as HP'.
-    { apply HP. unseal. done. }
-    revert HP'. destruct tr as [[]|]; by inversion 1.
-  Qed.
+  (* Lemma ltl_eventually_now_adequacy P (tr : trace S L) : *)
+  (*   (⊢ ◊ ↓ P) → ∃ n, P $ get_state $ after n tr. *)
+  (* Proof. *)
+  (*   intros H. *)
+  (*   apply (ltl_eventually_adequacy _ tr) in H as [n HP]. *)
+  (*   exists n. *)
+  (*   revert HP. ltl_unseal. *)
+  (*   destruct (after n tr) as [[]|]; by inversion 1. *)
+  (* Qed. *)
 
-  Lemma ltl_eventually_now_adequacy P (tr : trace S L) :
-    (⊢ ◊ ↓ P) → ∃ n, P $ get_state $ after n tr.
-  Proof.
-    intros H.
-    apply (ltl_eventually_adequacy _ tr) in H as [n HP].
-    exists n.
-    revert HP. ltl_unseal.
-    destruct (after n tr) as [[]|]; by inversion 1.
-  Qed.
-
-  Lemma ltl_always_adequacy P (tr : trace S L) :
-    (⊢ □ P) → ∀ n, P $ after n tr.
-  Proof.
-    ltl_unseal. intros HP.
-    assert (ltl_always_def P tr) as HP'.
-    { apply HP. unseal. done. }
-    clear HP.
-    intros n.
-    revert tr HP'.
-    induction n; intros tr HP'.
-    { simpl. by inversion HP'. }
-    simpl.
-    inversion HP'; [done|done|].
-    simplify_eq.
-    apply IHn. done.
-  Qed.
+  (* Lemma ltl_always_adequacy P (tr : trace S L) : *)
+  (*   (⊢ □ P) → ∀ n, P $ after n tr. *)
+  (* Proof. *)
+  (*   ltl_unseal. intros HP. *)
+  (*   assert (ltl_always_def P tr) as HP'. *)
+  (*   { apply HP. unseal. done. } *)
+  (*   clear HP. *)
+  (*   intros n. *)
+  (*   revert tr HP'. *)
+  (*   induction n; intros tr HP'. *)
+  (*   { simpl. by inversion HP'. } *)
+  (*   simpl. *)
+  (*   inversion HP'; [done|done|]. *)
+  (*   simplify_eq. *)
+  (*   apply IHn. done. *)
+  (* Qed. *)
 
   Tactic Notation "unseal_apply" constr(pat) :=
     let H := fresh in
@@ -719,10 +769,10 @@ Section ltl_lemmas.
     intros [HP].
     constructor.
     intros tr _.
-    ltl_unseal. destruct tr as [[]|].
-    - constructor. apply HP. unseal. done.
-    - constructor. apply HP. unseal. done.
-    - constructor. apply HP. unseal. done.
+    ltl_unseal. destruct tr as [[[]|]].
+    - econstructor 2. apply HP. unseal. done. Unshelve. apply trace_maximal_empty.
+    - econstructor 3. apply HP. unseal. done. Unshelve. inversion tr_wf0. done.
+    - econstructor 1. apply HP. unseal. done. Unshelve. done.
   Qed.
 
   (* A3 *)
@@ -731,7 +781,7 @@ Section ltl_lemmas.
   Proof.
     constructor. ltl_unseal. unseal.
     intros tr HPQ HP.
-    inversion HP; inversion HPQ; simplify_eq; constructor; naive_solver.
+    inversion HP; inversion HPQ; simplify_eq; econstructor; naive_solver.
   Qed.
 
   Lemma ltl_next_or_r (P Q : ltl_prop) :
@@ -739,9 +789,9 @@ Section ltl_lemmas.
   Proof.
     ltl_unseal. unseal. constructor.
     intros tr. inversion 1; simplify_eq.
-    + inversion H0; simplify_eq; [left|right]; by constructor.
-    + inversion H0; simplify_eq; [left|right]; by constructor.
-    + inversion H0; simplify_eq; [left|right]; by constructor.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
   Qed.
 
   (** ltl_until lemmas *)
@@ -750,12 +800,12 @@ Section ltl_lemmas.
     Q ∨ P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
   Proof.
     ltl_unseal. unseal. constructor.
-    intros tr [HQ|[HP HPQ]].
-    { by constructor 1. }
+    intros [tr tr_wf] [HQ|[HP HPQ]].
+    { by econstructor 1. }
     destruct tr.
     { revert HPQ. inversion 1.
-      - simplify_eq. constructor 2; [done|by inversion H0].
-      - simplify_eq. by constructor 3. }
+      - simplify_eq. inversion H0. by econstructor 2.
+      - simplify_eq. by econstructor 3. }
     revert HPQ. inversion 1. done.
   Qed.
 
@@ -771,14 +821,14 @@ Section ltl_lemmas.
     { apply H0.
       unseal.
       repeat split.
-      - ltl_unseal. constructor. constructor. done.
-      - ltl_unseal. constructor. apply H. done.
+      - ltl_unseal. econstructor. econstructor. done. Unshelve. done.
+      - ltl_unseal. econstructor. apply H. done.
       - done. }
     apply H0.
     unseal.
     repeat split.
-    - ltl_unseal. constructor. done.
-    - ltl_unseal. constructor. done.
+    - ltl_unseal. econstructor. done.
+    - ltl_unseal. econstructor. done.
     - done.
   Qed.
 
@@ -787,11 +837,11 @@ Section ltl_lemmas.
   Proof.
     intros HP HQ. constructor. intros tr.
     ltl_unseal. intros HPQ. induction HPQ.
-    { constructor. by apply HQ. } 
-    { constructor 2.
+    { econstructor. by apply HQ. } 
+    { econstructor 2.
       + apply HP. done.
       + apply HQ. done. }
-    constructor 3.
+    econstructor 3.
     + by apply HP. 
     + done.
   Qed.
@@ -802,11 +852,12 @@ Section ltl_lemmas.
     constructor.
     split.
     - ltl_unseal. intros Htr. induction Htr; [done| |].
-      + inversion H0. by constructor 2.
-      + by constructor 3.
+      + inversion H0. by econstructor 2.
+      + by econstructor 3.
     - ltl_unseal.
       intros HPQ.
-      constructor 1. done.
+      destruct tr.
+      econstructor 1. done.
   Qed.
 
   (** ltl_eventually lemmas *)
@@ -816,16 +867,20 @@ Section ltl_lemmas.
   Proof.
     ltl_unseal.
     constructor. unseal.
-    intros tr Hconj.
+    intros [tr tr_wf] Hconj.
     induction Hconj.
-    { destruct H as [H1 H2].
-      split; by constructor. }
-    { destruct H0 as [H1 H2]. split; by constructor 2. }
-    destruct IHHconj as [H1 H2].
+    { destruct H as [? ?].
+      split; by econstructor. }
+    { destruct H0 as [? ?]. split; by econstructor 2. }
+    destruct IHHconj as [??].
     split.
-    - by constructor 3.
-    - by constructor 3.
+    - by econstructor 3.
+    - by econstructor 3.
   Qed.
+
+  (* Lemma baz (tr1 tr2 : trace S L) (H : trace_maximal Rel tr1) : *)
+  (*   tr1 = tr2 → *)
+  (*   (∃ (H' : trace_maximal Rel tr2), Trace _ _ _ tr1 H = Trace _ _ _ tr2 H'). *)
 
   Lemma ltl_until_next_comm (P Q : ltl_prop) :
     (○ P ∪ ○ Q) ⊣⊢ ○ (P ∪ Q).
@@ -836,24 +891,26 @@ Section ltl_lemmas.
     - ltl_unseal.
       intros HP.
       induction HP.
-      { inversion H; constructor; constructor; done. }
-      { inversion H0. constructor. constructor. done. }
+      { inversion H; simplify_eq; econstructor; econstructor; done. }
+      { inversion H0; simplify_eq. econstructor. econstructor. done. }
       destruct tr as [].
-      + inversion IHHP. subst. constructor. inversion H. subst. constructor 2; [done|].
-        by inversion H1.
-      + inversion IHHP. subst. inversion H. subst. constructor 3. constructor 3; done.
+      + inversion IHHP; simplify_eq. subst. inversion H. subst. inversion H6; simplify_eq. econstructor. econstructor 2; [done|].
+        done.
+      + inversion IHHP. subst. inversion H. subst. econstructor 3. econstructor 3; done.
     - ltl_unseal.
       intros HP.
       induction HP.
-      + constructor. constructor. inversion H. done.
-      + constructor. constructor. inversion H. done.
-      + assert (∃ tr', tr' = Some tr) as [tr' Heq] by eauto.
+      + inversion H. econstructor. econstructor. done.
+      + inversion H. econstructor. econstructor. done.
+      + assert (∃ tr', tr' = {| tr_car := Some tr; tr_wf := H1 |}) as [tr' Heq] by eauto.
         rewrite -Heq in H.
-        revert tr s l Heq.
-        induction H; intros tr'' s' l' Heq.
-        * constructor. constructor. subst. done.
-        * simplify_eq. constructor 3; [by constructor|]. constructor. by constructor.
-        * simplify_eq. constructor 3; [by constructor|]. by apply IHltl_until_def.
+        revert tr s l H1 H2 Heq.
+        induction H; intros tr'' s' l' ?? Heq.
+        * simplify_eq. econstructor. econstructor. done.
+        * simplify_eq. econstructor 3; [by econstructor|]. econstructor. by econstructor.
+        * simplify_eq. econstructor 3; [by econstructor|]. by eapply IHltl_until_def.
+    Unshelve.
+    all: eauto.
   Qed.
 
   (** Misc *)
@@ -934,15 +991,18 @@ Section ltl_lemmas.
     constructor. ltl_unseal. intros tr _. revert tr.
     cofix IH.
     intros tr.
-    destruct tr as [[]|].
-    { constructor.
+    destruct tr as [[[]|]].
+    { econstructor.
       - apply HP; unseal. done.
       - apply HP; unseal. done. }
-    - constructor.
+    - econstructor.
       + apply HP. unseal. done.
       + done.
-    - constructor.
+    - econstructor.
       apply HP. unseal. done.
+    Unshelve. all: eauto.
+    { apply trace_maximal_empty. } 
+    { inversion tr_wf0. done. }
   Qed.
 
   Lemma ltl_always_intro (P : ltl_prop) :
@@ -952,14 +1012,12 @@ Section ltl_lemmas.
     cofix IH.
     intros tr Htr.
     inversion Htr; simplify_eq.
-    - intros HP. constructor. done.
-    - intros HP. constructor.
-      + done.
-      + apply H in HP. inversion HP. inversion H1. simpl in *. simplify_eq. done.
-    - intros HP. constructor; [done|].
-      + apply IH.
+    - intros HP. econstructor. done.
+    - intros HP. pose proof (HP) as HP'. apply H in HP'. inversion HP'. by econstructor.
+    - intros HP. econstructor; [done|].
+      + apply H in HP. inversion HP. apply IH.
         * done.
-        * apply H in HP. inversion HP. inversion H1. simpl in *. simplify_eq. done.
+        * done.
   Qed.
 
   Lemma ltl_always_elim (P : ltl_prop) :
@@ -975,15 +1033,13 @@ Section ltl_lemmas.
     constructor. ltl_unseal. unseal.
     cofix IH.
     intros tr Htr HP.
-    inversion HP; simplify_eq.
-    { constructor. inversion Htr; simplify_eq. by apply H0. }
-    constructor.
-    - inversion Htr; simplify_eq. apply H2. done.
-    - inversion Htr; simplify_eq.
-      apply H3. done.
-    - inversion Htr; simplify_eq.
-      constructor.
-      + apply H3. done.
+    inversion Htr; simplify_eq; inversion HP; simplify_eq.
+    { econstructor. by apply H. }
+    - econstructor.
+      + apply H. done.
+      + apply H0. done.
+    - econstructor.
+      + apply H. done.
       + eapply IH; done.
   Qed.
 
@@ -997,11 +1053,11 @@ Section ltl_lemmas.
       revert tr. cofix IH.
       intros tr Htr.
       inversion Htr; simplify_eq.
-      + constructor. done.
-      + constructor.
+      + econstructor. done.
+      + econstructor.
         * done.
-        * constructor. done.
-      + constructor.
+        * econstructor. done.
+      + econstructor.
         * done.
         * apply IH. done.
     - ltl_unseal.
@@ -1010,62 +1066,78 @@ Section ltl_lemmas.
       + done.
       + done.
       + done.
+   Unshelve. done.
   Qed.
 
   Lemma ltl_always_next (P : ltl_prop) :
     □ P ⊢ ○ □ P.
   Proof.
     constructor. ltl_unseal. intros tr Halways.
-    destruct tr as [[]|].
-    - constructor. inversion Halways. constructor. done.
-    - constructor. inversion Halways. done.
-    - constructor. inversion Halways. done.
+    destruct tr as [[[]|]]; inversion Halways.
+    - econstructor. econstructor. done.
+    - econstructor. done.
+    - econstructor. done.
+      Unshelve. done.
   Qed.
 
   Lemma ltl_always_next_comm (P : ltl_prop) :
     □ ○ P ⊢ ○ □ P.
   Proof.
     constructor. ltl_unseal. intros tr Halways.
-    destruct tr as [[]|].
-    - constructor. inversion Halways. constructor. inversion H. inversion H1. done.
-    - constructor.
-      revert s ℓ r Halways. cofix IH.
+    destruct tr as [[[]|]].
+    - econstructor. inversion Halways. inversion H4. inversion H5. econstructor. done.
+    - assert (trace_maximal Rel (Some r)) as Hwf.
+      { inversion tr_wf0. done. }
+      econstructor.
+      
+      instantiate (1:=Hwf). 
+      (* inversion Halways. simplify_eq. clear H8 H6. *)
+      (* revert s ℓ r tr_wf0 Halways H0 H1 H2 H4 H9. cofix IH. *)
+      revert s ℓ r tr_wf0 Halways Hwf. cofix IH.
       intros. destruct r as [].
-      { constructor.
-        - inversion Halways. simplify_eq. inversion H1. simplify_eq. done.
-        - inversion Halways. simplify_eq. inversion H3. simplify_eq. inversion H2. done.
+      { inversion Halways. simplify_eq.
+        inversion H9. simplify_eq.
+        inversion H4. simplify_eq.
+        inversion H12. simplify_eq.
+        econstructor.
+        - done.
+        - done.
       }
-      constructor.
-      { inversion Halways. simplify_eq. inversion H1. simplify_eq. done. }
-      inversion Halways. simplify_eq. inversion H1. simplify_eq.
+      inversion Halways. simplify_eq. inversion H4. simplify_eq.
+      econstructor.
+      { done. }
       eapply IH.
       done.
-    - constructor. inversion Halways. constructor. inversion H. done.
+    - inversion Halways. inversion H. econstructor. econstructor. done.
+      Unshelve.
+      all: eauto.
+      { constructor. }
+      { inversion Hwf. done. }
   Qed.
 
   (** LTL Now (TBD) *)
 
-  Lemma ltl_now_false (P Q : option (S* option L) → Prop) :
-    (∀ osl, P osl → Q osl → False) → ↓ P -∗ ↓ Q -∗ False.
-  Proof. unseal. ltl_unseal.
-         intros HPQ. constructor.
-         intros tr _ HP HQ.
-         destruct tr as [[]|]; eapply (HPQ); simpl in *.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
-  Qed.
+  (* Lemma ltl_now_false (P Q : option (S* option L) → Prop) : *)
+  (*   (∀ osl, P osl → Q osl → False) → ↓ P -∗ ↓ Q -∗ False. *)
+  (* Proof. unseal. ltl_unseal. *)
+  (*        intros HPQ. constructor. *)
+  (*        intros tr _ HP HQ. *)
+  (*        destruct tr as [[]|]; eapply (HPQ); simpl in *. *)
+  (*        - by inversion HP. *)
+  (*        - by inversion HQ. *)
+  (*        - by inversion HP. *)
+  (*        - by inversion HQ. *)
+  (*        - by inversion HP. *)
+  (*        - by inversion HQ. *)
+  (* Qed. *)
 
-  Lemma ltl_now_mono P Q :
-    (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):ltl_prop.
-  Proof.
-    intros HPQ.
-    ltl_unseal. constructor.
-    intros [[]|]; inversion 1; try constructor; by apply HPQ.
-  Qed.
+  (* Lemma ltl_now_mono P Q : *)
+  (*   (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):ltl_prop. *)
+  (* Proof. *)
+  (*   intros HPQ. *)
+  (*   ltl_unseal. constructor. *)
+  (*   intros [[]|]; inversion 1; try constructor; by apply HPQ. *)
+  (* Qed. *)
 
   (** LTL Exists (TBD) *)
 
@@ -1074,9 +1146,9 @@ Section ltl_lemmas.
   Proof.
     unseal. ltl_unseal.
     constructor. intros tr Hnext. inversion Hnext.
-    - simplify_eq. destruct H as [a H]. exists a. constructor. apply H.
-    - simplify_eq. destruct H as [a H]. exists a. constructor. apply H.
-    - simplify_eq. destruct H as [a H]. exists a. constructor. apply H.
+    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
+    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
+    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
   Qed.
 
   (** DERIVED RULES *)
@@ -1294,7 +1366,7 @@ Section ltl_lemmas.
     { apply H. apply ltl_always_elim. ltl_unseal. done. }
     { apply H0. inversion Htr. done. }
     { inversion Htr. simplify_eq.
-      apply IHHtr' in H4. done. }
+      apply IHHtr'. done. }
   Qed.
   
   Lemma ltl_not_eventually_always_not (P : ltl_prop) :
@@ -1306,9 +1378,9 @@ Section ltl_lemmas.
     { pose proof (ltl_always_elim).
       revert H0. ltl_unseal. intros H0.
       apply H0 in Htr'. apply Htr'. done. }
-    { inversion Htr'. subst. apply H3. done. }
+    { inversion Htr'. subst. apply H10. done. }
     { inversion Htr'. simplify_eq.
-      apply IHHtr in H4. done. }
+      apply IHHtr. done. }
   Qed.
 
   (** Proofmode stuff *)
@@ -1335,8 +1407,9 @@ End ltl_lemmas.
 
 Section ltl_proofmode.
   Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
 
-  Notation ltl_prop := (ltl_prop S L).
+  Notation ltl_prop := (ltl_prop S L Rel).
 
   Import ltl_prop.
 
@@ -1556,7 +1629,7 @@ Section ltl_proofmode.
     - by apply ltl_next_mono.
     - iIntros (P Q) "[HP HQ]". iApply ltl_next_and. by iSplit.
   Qed.
-  Definition modality_next := Modality (@ltl_next S L) modality_next_mixin.
+  Definition modality_next := Modality (@ltl_next S L Rel) modality_next_mixin.
   Global Instance from_modal_next (P : ltl_prop) :
     @FromModal ltlI ltlI _ True%type modality_next (○ P) (○ P) (P).
   Proof. rewrite /FromModal /=. done. Qed.
@@ -1594,7 +1667,7 @@ Section ltl_proofmode.
     - iIntros (P Q) "[HP HQ]". iApply ltl_always_and. by iSplit.
   Qed.
 
-  Definition modality_always := Modality (@ltl_always S L) modality_always_mixin.
+  Definition modality_always := Modality (@ltl_always S L Rel) modality_always_mixin.
   Global Instance from_modal_always (P : ltl_prop) :
     @FromModal ltlI ltlI _ True%type modality_always (□ P) (□ P) (P).
   Proof. rewrite /FromModal /=. done. Qed.
