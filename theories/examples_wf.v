@@ -225,142 +225,128 @@ Section simple_ex.
 
 End simple_ex.
 
-(* Section advanced_ex. *)
+Section advanced_ex.
 
-(*   Definition state' : Set := nat * bool. *)
-(*   Definition label' : Set := bool. *)
-(*   Inductive steps' : state' → label' → state' → Prop := *)
-(*   | my_step_succ i b : steps' (i,b) b (i+1,negb b) *)
-(*   | my_step_fail i b : steps' (i,b) (negb b) (i,b). *)
+  Definition state' : Set := nat * bool.
+  Definition label' : Set := bool.
+  Inductive steps' : state' → label' → state' → Prop :=
+  | my_step_succ i b : steps' (i,b) b (i+1,negb b)
+  | my_step_fail i b : steps' (i,b) (negb b) (i,b).
 
-(*   Axiom fair : *)
-(*     ∀ (b:bool), ⊢ (◊ (↓l (λ ol, ol = Some b))):ltl_prop state' label'. *)
+  Instance steps_dec' s oζ c' : Decision (steps' s oζ c').
+  Proof. Admitted.
+  (*   destruct s.  *)
+  (*   destruct (decide (b=oζ)); subst. *)
+  (*   - destruct (decide (n = n + 1)). *)
+  (*     + subst. constructor 1. destruct oζ. constructor. *)
+  (*     +constructor 2. intros H. inversion H. subst. done. *)
+  (* Qed. *)
 
-(*   (* TODO: Why is this needed for [unseal]? *) *)
-(*   Import ltl_prop. *)
+  Axiom fair :
+    ∀ (b:bool), ⊢ (◊ (↓l (λ ol, ol = Some b))):ltl_prop state' label' steps'.
 
-(*   Lemma step_b b i : *)
-(*     (well_formed_trace steps') ∧ *)
-(*     (↓s (λ os, os = Some (i,b))) ⊢ *)
-(*          ((↓l (λ ol, ol = Some b)) ∧ ○ (↓s (λ os, os = Some (i+1,negb b)))) ∨ *)
-(*            ((↓l (λ ol, ol = Some (negb b)) ∧ ○ (↓s (λ os, os = Some (i,b))))). *)
-(*   Proof. *)
-(*     constructor. intros [tr|]; last first. *)
-(*     { unseal. rewrite ltl_now_unseal. *)
-(*       intros [_ H]. inversion H. simplify_eq. } *)
-(*     unseal. rewrite ltl_now_unseal. *)
-(*     intros [Hwf H]. inversion H; simplify_eq. *)
-(*     - rewrite /well_formed_trace in Hwf. rewrite ltl_always_unseal in Hwf. *)
-(*       inversion Hwf. simplify_eq. *)
-(*       inversion H1. simplify_eq. *)
-(*       specialize (H3 b ((i+1), negb b)). *)
-(*       pose proof (my_step_succ i b). done. *)
-(*     - rewrite /well_formed_trace in Hwf. rewrite ltl_always_unseal in Hwf. *)
-(*       inversion Hwf. simplify_eq. inversion H2. *)
-(*       (* TODO: Merge *) *)
-(*       simpl in *. rewrite ltl_next_unseal. *)
-(*       destruct tr0; simplify_eq. *)
-(*       { inversion H6; simplify_eq. *)
-(*         - constructor 1.  *)
-(*           constructor. *)
-(*           + by constructor. *)
-(*           + constructor. constructor. done. *)
-(*         - constructor 2. *)
-(*           constructor. *)
-(*           + constructor. done. *)
-(*           + constructor. constructor. done. } *)
-(*       { inversion H6; simplify_eq. *)
-(*         - constructor 1. *)
-(*           constructor. *)
-(*           + by constructor. *)
-(*           + constructor. constructor. done. *)
-(*         - constructor 2. *)
-(*           constructor. *)
-(*           + constructor. done. *)
-(*           + constructor. constructor. done. } *)
-(*   Qed. *)
+  (* TODO: Why is this needed for [unseal]? *)
+  Import ltl_prop.
 
-(*   Lemma my_property'' i b : *)
-(*     (well_formed_trace steps') ∧ *)
-(*     ↓s (λ os, os = Some (i,b)) ⊢ *)
-(*     ↓s (λ os, os = Some (i,b)) ∪ ↓s (λ os, os = Some (i+1,negb b)) : ltl_prop state' label'. *)
-(*   Proof. *)
-(*     iIntros "H". *)
-(*     iDestruct (fair b) as "H1". *)
-(*     iRevert "H". *)
-(*     iApply (ltl_until_ind with "H1"). *)
-(*     { iIntros "H1 H2". *)
-(*        iDestruct (step_b with "H2") as "#[H3|H3]"; last first. *)
-(*        { iDestruct "H3" as "[H3 H3']". *)
-(*          iDestruct (ltl_now_false with "H1 H3") as "[]". *)
-(*          destruct b; intros [[? []]|] HP HQ; by naive_solver. } *)
-(*        iDestruct "H3" as "[_ H3']". *)
-(*        iApply ltl_until_intro_next. iDestruct "H2" as "[_ H]". iFrame. *)
-(*        iModIntro. iApply ltl_until_intro_now. done. } *)
-(*     iIntros "[H1 [H2 _]] #H3". *)
-(*     iDestruct (step_b with "H3") as "-#[H3'|H3']". *)
-(*     { iApply ltl_until_intro_next. *)
-(*       iDestruct "H3" as "(Hwf&H3)". *)
-(*       iFrame "#". *)
-(*       iDestruct "H3'" as "[H' H'']". *)
-(*       iModIntro. *)
-(*       iApply ltl_until_intro_now. *)
-(*       iApply (ltl_now_mono with "H''"). done. } *)
-(*     iDestruct "H3'" as "[H' H'']". *)
-(*     iDestruct "H3" as "(Hwf&H3)". *)
-(*     iApply ltl_until_intro_next. *)
-(*     iFrame "#". *)
-(*     iModIntro. *)
-(*     iApply "H2". *)
-(*     iFrame "#". *)
-(*     done. *)
-(*   Qed. *)
+  Lemma step_b b i :
+    (↓s (λ os, os = Some (i,b))) ⊢
+    ((↓l (λ ol, ol = Some b)) ∧ ○ (↓s (λ os, os = Some (i+1,negb b)))) ∨
+      ((↓l (λ ol, ol = Some (negb b)) ∧ ○ (↓s (λ os, os = Some (i,b))))):ltl_prop state' label' steps'.
+  Proof.
+    constructor. intros [[tr|]]; last first.
+    { unseal. rewrite ltl_now_unseal.
+      intros H. inversion H. simplify_eq. }
+    unseal. rewrite ltl_now_unseal.
+    intros H. inversion H; simplify_eq.
+    - assert ((∀ oζ c', ¬ steps' (i,b) oζ c')) as Hwf.
+      { intros.
+        destruct (decide (steps' (i,b) oζ c')); [|done].
+        apply empty_ind. inversion tr_wf. subst. specialize (H1 oζ c'). done. }
+      inversion H; simplify_eq.
+      specialize (Hwf b (i+1,negb b)).
+      pose proof (my_step_succ i b). done.
+    - 
+      assert (∃ c', head_trace (Some tr0) = Some c' ∧ steps' (i,b) l c') as Hwf.
+      { destruct tr0; destruct s.
+        { exfalso. apply empty_ind. inversion tr_wf. simplify_eq. inversion H5.
+          subst. 
+          specialize (H1 b0 (n+1,negb b0)). 
+          assert (steps' (n,b0) b0 (n+1,negb b0)).
+          { constructor. }
+          done. } 
+        exists (n,b0). split; [done|].
+        destruct (decide (steps' (i,b) l (n,b0))); [done|].
+        exfalso. apply empty_ind. inversion tr_wf. simplify_eq.
+        simpl in *. simplify_eq. done. }
+      destruct Hwf as (i'&Htr&Hsteps).
+      inversion Hsteps; simplify_eq.
+      + constructor 1.
+        constructor.
+        * by econstructor.
+        * rewrite ltl_next_unseal. repeat econstructor. destruct tr0; econstructor; done.
+      + constructor 2.
+        constructor.
+        * by econstructor.
+        * rewrite ltl_next_unseal. repeat econstructor. destruct tr0; econstructor; done.
+     Unshelve.
+     all: by inversion tr_wf.
+   Qed.
 
-(*   Lemma ltl_until_ind_alt {S L} (P P' Q R : ltl_prop S L) : *)
-(*     (□ P' ∧ Q ⊢ R) → *)
-(*     (□ P' ∧ ○ (ltl_until P Q) ∧ ○ R ∧ P ⊢ R) → *)
-(*     □ P' ∧ P ∪ Q ⊢ R. *)
-(*   Proof. *)
-(*     intros H1 H2. rewrite ltl_until_always_combine. *)
-(*     apply ltl_until_ind. *)
-(*     - done. *)
-(*     - iIntros "(H1 & H2 & H3 & H4)". iApply H2.  *)
-(*       iFrame. iModIntro. iApply (ltl_until_mono with "H1"); iIntros "[_ $]". *)
-(*   Qed. *)
+  Lemma my_property'' i b :
+    ↓s (λ os, os = Some (i,b)) ⊢
+    ↓s (λ os, os = Some (i,b)) ∪ ↓s (λ os, os = Some (i+1,negb b)) : ltl_prop state' label' steps'.
+  Proof.
+    iIntros "H".
+    iDestruct (fair b) as "H1".
+    iRevert "H".
+    iApply (ltl_until_ind with "H1").
+    { iIntros "H1 H2".
+       iDestruct (step_b with "H2") as "#[H3|H3]"; last first.
+       { iDestruct "H3" as "[H3 H3']".
+         iDestruct (ltl_now_false with "H1 H3") as "[]".
+         destruct b; intros [[? []]|] HP HQ; by naive_solver. }
+       iDestruct "H3" as "[_ H3']".
+       iApply ltl_until_intro_next. iFrame.
+       iModIntro. iApply ltl_until_intro_now. done. }
+    iIntros "[H1 [H2 _]] #H3".
+    iDestruct (step_b with "H3") as "-#[H3'|H3']".
+    { iApply ltl_until_intro_next.
+      iFrame "#".
+      iDestruct "H3'" as "[H' H'']".
+      iModIntro.
+      iApply ltl_until_intro_now.
+      iApply (ltl_now_mono with "H''"). done. }
+    iDestruct "H3'" as "[H' H'']".
+    iApply ltl_until_intro_next.
+    iFrame "#".
+    iModIntro.
+    iApply "H2".
+    iFrame "#".
+    done.
+  Qed.
 
-(*   (* Tactic Notation "iIndUntil" "with" constr(pat) := *) *)
-(*   (*   iApply (ltl_until_ind with pat); *) *)
-(*   (*   [iIntros pat|iIntros "(?&?&?)"]. *) *)
+  Lemma my_property' n b :
+    ↓s (λ os, os = Some (0,b)) ⊢ ∃ b, (◊ ↓s (λ os, os = Some (n,b))):ltl_prop state' label' steps'.
+  Proof.
+    assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
+    { eexists _, n. split; [done|]. lia. }
+    revert n i b H1 H2. induction j; intros n i b H1 H2.
+    { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro_now. done. }
+    iIntros "#H".
+    iDestruct (my_property'' with "H") as "H'".
+    iApply (ltl_until_ind with "H'").
+    { iIntros "H".
+      iDestruct (IHj with "H") as "H".
+      { instantiate (1:=n). rewrite -H1. lia. }
+      { lia. }
+      done. }
+    iIntros "(H1&H2&H3)".
+    clear IHj.
+    rewrite ltl_next_exists.
+    iDestruct "H2" as (b') "H2".
+    iExists b'.
+    iApply ltl_next_eventually. iModIntro.
+    done.
+  Qed.
 
-(*   (* Tactic Notation "iIndUntil" "with" constr(pat1) "and" constr(pat2) := *) *)
-(*   (*   iCombine  *) *)
-(*   (*   iApply (ltl_until_ind_alt with pat). *) *)
-
-(*   Lemma my_property' n b : *)
-(*     (well_formed_trace steps') ∧ *)
-(*     ↓s (λ os, os = Some (0,b)) ⊢ ∃ b, (◊ ↓s (λ os, os = Some (n,b))):ltl_prop state' label'. *)
-(*   Proof. *)
-(*     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2). *)
-(*     { eexists _, n. split; [done|]. lia. }  *)
-(*     revert n i b H1 H2. induction j; intros n i b H1 H2. *)
-(*     { simplify_eq. rewrite right_id. iIntros "[_ H]". iExists b. iApply ltl_eventually_intro_now. done. } *)
-(*     iIntros "#H". *)
-(*     iDestruct (my_property'' with "H") as "H'". *)
-(*     iDestruct "H" as "(#Hwf & H)". *)
-(*     iCombine "H'" "Hwf" as "H''". *)
-(*     iApply (ltl_until_ind with "H''"). *)
-(*     { iIntros "H". *)
-(*       iDestruct (IHj with "H") as "H". *)
-(*       { instantiate (1:=n). rewrite -H1. lia. } *)
-(*       { lia. } *)
-(*       done. } *)
-(*     iIntros "(H1&H2&H3)". *)
-(*     clear IHj. *)
-(*     rewrite ltl_next_exists. *)
-(*     iDestruct "H2" as (b') "H2". *)
-(*     iExists b'. *)
-(*     iApply ltl_next_eventually. iModIntro. *)
-(*     done. *)
-(*   Qed. *)
-
-(* End advanced_ex. *)
+End advanced_ex.
