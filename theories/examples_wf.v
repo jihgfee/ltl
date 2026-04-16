@@ -234,13 +234,16 @@ Section advanced_ex.
   | my_step_fail i b : steps' (i,b) (negb b) (i,b).
 
   Instance steps_dec' s oζ c' : Decision (steps' s oζ c').
-  Proof. Admitted.
-  (*   destruct s.  *)
-  (*   destruct (decide (b=oζ)); subst. *)
-  (*   - destruct (decide (n = n + 1)). *)
-  (*     + subst. constructor 1. destruct oζ. constructor. *)
-  (*     +constructor 2. intros H. inversion H. subst. done. *)
-  (* Qed. *)
+  Proof.
+    destruct s as [i b].
+    destruct (decide (b=oζ)); subst.
+    - destruct (decide (c' = (i + 1, negb oζ))).
+      + subst. constructor 1. constructor.
+      + constructor 2. intros H. inversion H; subst. done. by destruct oζ.
+    - destruct (decide (c' = (i, b))).      
+      + subst. constructor 1. destruct b, oζ; [naive_solver|..|naive_solver]; constructor.
+      + constructor 2. intros H. inversion H; subst. done. done. 
+  Qed.
 
   Axiom fair :
     ∀ (b:bool), ⊢ (◊ (↓l (λ ol, ol = Some b))):ltl_prop state' label' steps'.
