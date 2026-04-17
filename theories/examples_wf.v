@@ -154,8 +154,17 @@ Import ltl_prop.
 
 Inductive empty : SProp := .
 
-Lemma trace_steps {S L Rel} `{∀ s l s', Decision (Rel s l s')} s :
-  (∃ (l:L) (s':S), Rel s l s') →
+Class LTL (S L : Type) (Rel : S → L → S → Prop) :=
+  mkFoo
+  {
+    Rel_dec :: ∀ s l s', Decision (Rel s l s');
+  }.
+
+Definition reducible {S L} `{LTL S L} (s : S) :=
+  ∃ (l:L) (s':S), Rel s l s'.
+
+Lemma trace_steps {S L} `{HRel: LTL S L Rel} s :
+  reducible s →
   (↓s (λ os, os = Some s)) ⊢
   ∃ (l:L) (s':S), ⌜Rel s l s'⌝ ∧
     ((↓l (λ ol, ol = Some l)) ∧ ○ (↓s (λ os, os = Some s'))) : ltl_prop S L Rel.
@@ -167,7 +176,7 @@ Proof.
     intros Hnow. inversion Hnow. simplify_eq. }
   unseal. rewrite ltl_now_unseal.
   intros Hnow. inversion Hnow; simplify_eq.
-  { exfalso. apply empty_ind. inversion tr_wf. subst. specialize (H1 l s'). done. }
+  { exfalso. apply empty_ind. inversion tr_wf. subst. specialize (H0 l s'). done. }
   clear Hsteps.
   assert (∃ c', head_trace (Some tr0) = Some c' ∧ Rel s l0 c') as Hwf.
   { destruct tr0.
@@ -198,56 +207,16 @@ Section simple_ex.
   Inductive steps : state → label → state → Prop :=
     | my_step i : steps i () (i+1).
 
-  (* TODO: Why is this needed for [unseal]? *)
-  Import ltl_prop.
-
-  Instance steps_dec s oζ c' : Decision (steps s oζ c').
-  Proof.
-    destruct (decide (c' = s + 1)).
-    - subst. constructor 1. destruct oζ. constructor.
+  Instance simple_foo : LTL state label steps.
+  Proof. 
+    constructor. intros.
+    destruct (decide (s' = s + 1)).
+    - subst. constructor 1. destruct l. constructor.
     - constructor 2. intros H. inversion H. subst. done.
   Qed.
 
-  (* Lemma step i : *)
-  (*   (↓s (λ os, os = Some i)) ⊢ *)
-  (*   (○ (↓s (λ os, os = Some (i+1)))):ltl_prop state label steps. *)
-  (* Proof. *)
-  (*   constructor. intros [[tr|]]; last first. *)
-  (*   { rewrite ltl_now_unseal. *)
-  (*     intros H. inversion H; simplify_eq. } *)
-  (*   rewrite ltl_now_unseal. *)
-  (*   intros H. *)
-  (*   destruct tr; inversion H; simplify_eq. *)
-  (*   - assert ((∀ oζ c', ¬ steps i oζ c')) as Hwf. *)
-  (*     { intros. *)
-  (*       destruct (decide (steps i oζ c')); [|done]. *)
-  (*       apply empty_ind. inversion tr_wf. subst. specialize (H1 oζ c'). done. } *)
-  (*     inversion H; simplify_eq. *)
-  (*     specialize (Hwf () (i+1)). *)
-  (*     pose proof (my_step i). done. *)
-  (*   - assert (∃ oζ c', head_trace (Some tr) = Some c' ∧ steps i oζ c') as Hwf. *)
-  (*     { destruct tr. *)
-  (*       { exfalso. apply empty_ind. inversion tr_wf. simplify_eq. inversion H8. *)
-  (*         subst.  *)
-  (*         specialize (H1 () (s+1)).  *)
-  (*         assert (steps s () (s+1)). *)
-  (*         { constructor. } *)
-  (*         done. }  *)
-  (*       exists ℓ, s. split; [done|]. *)
-  (*       destruct (decide (steps i ℓ s)); [done|]. *)
-  (*       exfalso. apply empty_ind. inversion tr_wf. simplify_eq. *)
-  (*       simpl in *. simplify_eq. destruct ℓ. done. } *)
-  (*     destruct Hwf as (l'&i'&Htr&Hsteps). *)
-  (*     inversion Hsteps. simplify_eq. *)
-  (*     (* TODO: Merge *) *)
-  (*     simpl in *. destruct tr; simplify_eq. *)
-  (*     { rewrite ltl_next_unseal. econstructor. econstructor 2; done. } *)
-  (*     simpl in *. *)
-  (*     rewrite ltl_next_unseal. econstructor. econstructor 3; done.  *)
-  (*     Unshelve. *)
-  (*     { inversion tr_wf. simplify_eq. done. } *)
-  (*     { inversion tr_wf. simplify_eq. done. } *)
-  (* Qed. *)
+  (* TODO: Why is this needed for [unseal]? *)
+  Import ltl_prop.
 
   Lemma step i :
     (↓s (λ os, os = Some i)) ⊢
@@ -264,7 +233,7 @@ Section simple_ex.
 
   Lemma my_property (n:nat) : 
     ↓s (λ os, os = Some 0) ⊢ (◊ ↓s (λ os, os = Some n)):ltl_prop nat unit steps.
-  Proof.
+  Proof.   
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     revert n i H1 H2. induction j; intros n i H1 H2.
@@ -288,15 +257,16 @@ Section advanced_ex.
   | my_step_succ i b : steps' (i,b) b (i+1,negb b)
   | my_step_fail i b : steps' (i,b) (negb b) (i,b).
 
-  Instance steps_dec' s oζ c' : Decision (steps' s oζ c').
-  Proof.
+  Instance advanced_foo : LTL state' label' steps'.
+  Proof. 
+    constructor. intros.
     destruct s as [i b].
-    destruct (decide (b=oζ)); subst.
-    - destruct (decide (c' = (i + 1, negb oζ))).
+    destruct (decide (b=l)); subst.
+    - destruct (decide (s' = (i + 1, negb l))).
       + subst. constructor 1. constructor.
-      + constructor 2. intros H. inversion H; subst. done. by destruct oζ.
-    - destruct (decide (c' = (i, b))).      
-      + subst. constructor 1. destruct b, oζ; [naive_solver|..|naive_solver]; constructor.
+      + constructor 2. intros H. inversion H; subst. done. by destruct l.
+    - destruct (decide (s' = (i, b))).      
+      + subst. constructor 1. destruct b, l; [naive_solver|..|naive_solver]; constructor.
       + constructor 2. intros H. inversion H; subst. done. done. 
   Qed.
 
@@ -305,50 +275,6 @@ Section advanced_ex.
 
   (* TODO: Why is this needed for [unseal]? *)
   Import ltl_prop.
-
-  (* Lemma step_b b i : *)
-  (*   (↓s (λ os, os = Some (i,b))) ⊢ *)
-  (*   ((↓l (λ ol, ol = Some b)) ∧ ○ (↓s (λ os, os = Some (i+1,negb b)))) ∨ *)
-  (*     ((↓l (λ ol, ol = Some (negb b)) ∧ ○ (↓s (λ os, os = Some (i,b))))):ltl_prop state' label' steps'. *)
-  (* Proof. *)
-  (*   constructor. intros [[tr|]]; last first. *)
-  (*   { unseal. rewrite ltl_now_unseal. *)
-  (*     intros H. inversion H. simplify_eq. } *)
-  (*   unseal. rewrite ltl_now_unseal. *)
-  (*   intros H. inversion H; simplify_eq. *)
-  (*   - assert ((∀ oζ c', ¬ steps' (i,b) oζ c')) as Hwf. *)
-  (*     { intros. *)
-  (*       destruct (decide (steps' (i,b) oζ c')); [|done]. *)
-  (*       apply empty_ind. inversion tr_wf. subst. specialize (H1 oζ c'). done. } *)
-  (*     inversion H; simplify_eq. *)
-  (*     specialize (Hwf b (i+1,negb b)). *)
-  (*     pose proof (my_step_succ i b). done. *)
-  (*   -  *)
-  (*     assert (∃ c', head_trace (Some tr0) = Some c' ∧ steps' (i,b) l c') as Hwf. *)
-  (*     { destruct tr0; destruct s. *)
-  (*       { exfalso. apply empty_ind. inversion tr_wf. simplify_eq. inversion H5. *)
-  (*         subst.  *)
-  (*         specialize (H1 b0 (n+1,negb b0)).  *)
-  (*         assert (steps' (n,b0) b0 (n+1,negb b0)). *)
-  (*         { constructor. } *)
-  (*         done. }  *)
-  (*       exists (n,b0). split; [done|]. *)
-  (*       destruct (decide (steps' (i,b) l (n,b0))); [done|]. *)
-  (*       exfalso. apply empty_ind. inversion tr_wf. simplify_eq. *)
-  (*       simpl in *. simplify_eq. done. } *)
-  (*     destruct Hwf as (i'&Htr&Hsteps). *)
-  (*     inversion Hsteps; simplify_eq. *)
-  (*     + constructor 1. *)
-  (*       constructor. *)
-  (*       * by econstructor. *)
-  (*       * rewrite ltl_next_unseal. repeat econstructor. destruct tr0; econstructor; done. *)
-  (*     + constructor 2. *)
-  (*       constructor. *)
-  (*       * by econstructor. *)
-  (*       * rewrite ltl_next_unseal. repeat econstructor. destruct tr0; econstructor; done. *)
-  (*    Unshelve. *)
-  (*    all: by inversion tr_wf. *)
-  (*  Qed. *)
 
   Lemma step_b b i :
     (↓s (λ os, os = Some (i,b))) ⊢
