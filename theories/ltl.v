@@ -1132,6 +1132,10 @@ Section ltl_lemmas.
     iIntros "(?&?&?)". iFrame.
   Qed.
 
+  Lemma ltl_always_eventually (P : tProp) :
+    □ P ⊢ ◊ P.
+  Proof. rewrite -ltl_eventually_intro_now. eauto. Qed.
+
   Lemma ltl_next_always_combine (P Q : tProp) :
     (□ P ∧ ○ Q) ⊢ (○ (Q ∧ □ P)).
   Proof.
@@ -1172,39 +1176,15 @@ Section ltl_proofmode.
 
   Import tProp.
 
-  Global Instance into_wand_next p (P Q R : tProp) :
-    IntoWand p p R P Q → IntoWand p p (○ R)%I (○ P)%I (○ Q)%I.
-  Proof. Admitted.
-  (*   rewrite /IntoWand. *)
-  (*   destruct p; simpl; [rewrite !bi_intuitionistically_id|]. *)
-  (*   - intros HR. iIntros "HR HP". *)
-  (*     iAssert (○ (R ∧ P))%I with "[HR HP]" as "H". *)
-  (*     { iApply ltl_next_and. iSplit; iFrame. } *)
-  (*     iApply (ltl_next_mono with "H"). *)
-  (*     rewrite HR. *)
-  (*     iIntros "[HPQ HP]". by iApply "HPQ". *)
-  (*   - intros HR. iIntros "HR HP". *)
-  (*     iAssert (○ (R ∧ P))%I with "[HR HP]" as "H". *)
-  (*     { iApply ltl_next_and. iSplit; iFrame. } *)
-  (*     iApply (ltl_next_mono with "H"). *)
-  (*     rewrite HR. *)
-  (*     iIntros "[HPQ HP]". by iApply "HPQ". *)
-  (* Qed. *)
-
-  Global Instance into_and_eventually b (P Q1 Q2 : tProp) :
-    IntoAnd b P Q1 Q2 →
-    IntoAnd b (◊ P)%I (◊ Q1)%I (◊ Q2)%I.
-  Proof. Admitted.
-  (*   destruct b; simpl. *)
-  (*   - rewrite /IntoAnd. simpl. rewrite !bi_intuitionistically_id. *)
-  (*     intros HPQ. *)
-  (*     rewrite -ltl_eventually_and. *)
-  (*     by eapply ltl_eventually_mono. *)
-  (*   - rewrite /IntoAnd. simpl. *)
-  (*     intros HPQ. *)
-  (*     rewrite -ltl_eventually_and. *)
-  (*     by eapply ltl_eventually_mono. *)
-  (* Qed. *)
+  Global Instance into_and_eventually (P Q1 Q2 : tProp) :
+    IntoAnd false P Q1 Q2 →
+    IntoAnd false (◊ P)%I (◊ Q1)%I (◊ Q2)%I.
+  Proof.
+    rewrite /IntoAnd. simpl.
+    intros HPQ.
+    rewrite -ltl_eventually_and.
+    by eapply ltl_eventually_mono.
+  Qed.
 
   Global Instance into_sep_eventually (P Q1 Q2 : tProp) :
     IntoSep P Q1 Q2 →
@@ -1231,62 +1211,54 @@ Section ltl_proofmode.
     destruct p; simpl; by iIntros "HP".
   Qed.
 
+
   Global Instance into_next_and b (P1 P2 Q1 Q2 : tProp) :
     IntoNext b P1 P2 →
     IntoNext b Q1 Q2 →
     IntoNext b (P1 ∧ Q1) (P2 ∧ Q2).
-  Proof. Admitted.
-  (*   rewrite /IntoNext. intros HP HQ p. *)
-  (*   destruct p; simpl; [rewrite bi_intuitionistically_id|]. *)
-  (*   - rewrite -ltl_next_and. *)
-  (*     rewrite -(HP true). *)
-  (*     rewrite -(HQ true). simpl. *)
-  (*     rewrite !bi_intuitionistically_id. done. *)
-  (*   - rewrite -ltl_next_and. *)
-  (*     rewrite -(HP true). *)
-  (*     rewrite -(HQ true). simpl. *)
-  (*     rewrite !bi_intuitionistically_id. done. *)
-  (* Qed. *)
+  Proof.
+    rewrite /IntoNext. intros HP HQ.
+    destruct b; simpl.
+    - rewrite -ltl_next_and. simpl in *.
+      rewrite bi.intuitionistically_and.
+      rewrite HP HQ. done.
+    - rewrite -ltl_next_and. simpl in *.
+      rewrite HP HQ. done.
+  Qed.
 
-  Global Instance into_next_eventually p (P Q : tProp) :
-    IntoNext p P Q →
-    IntoNext p (◊ P) (◊ Q).
-  Proof. Admitted.
-  (*   rewrite /IntoNext. intros HPQ p. *)
-  (*   destruct p; simpl; [rewrite bi_intuitionistically_id|]. *)
-  (*   - rewrite -ltl_eventually_next_comm. *)
-  (*     eapply ltl_eventually_mono. *)
-  (*     specialize (HPQ true). simpl in HPQ. *)
-  (*     rewrite bi_intuitionistically_id in HPQ. *)
-  (*     done. *)
-  (*   - rewrite -ltl_eventually_next_comm. *)
-  (*     eapply ltl_eventually_mono. *)
-  (*     specialize (HPQ true). simpl in HPQ. *)
-  (*     rewrite bi_intuitionistically_id in HPQ. *)
-  (*     done. *)
-  (* Qed. *)
+  Global Instance into_next_eventually (P Q : tProp) :
+    IntoNext false P Q →
+    IntoNext false (◊ P) (◊ Q).
+  Proof.
+    rewrite /IntoNext. intros HPQ.
+    rewrite -ltl_eventually_next_comm.
+    eapply ltl_eventually_mono.
+    specialize HPQ. simpl in HPQ.
+    done.
+  Qed.
 
   Global Instance into_next_always p (P : tProp) :
     IntoNext p (□ P) (□ P) | 1.
-  Proof. Admitted.
-    (* rewrite /IntoNext. intros p. *)
-  (*   destruct p; simpl; [rewrite bi_intuitionistically_id|]. *)
-  (*   - apply ltl_always_next. *)
-  (*   - apply ltl_always_next. *)
-  (* Qed. *)
+  Proof.
+    rewrite /IntoNext. destruct p.
+    - simpl. rewrite -ltl_always_next. eauto.
+    - apply ltl_always_next.
+  Qed.
 
   Global Instance into_next_always' p (P : tProp) :
     IntoNext p (□ ○ P) (□ P) | 0.
-  Proof. Admitted.
-  (*   rewrite /IntoNext. intros p. *)
-  (*   destruct p; simpl; [rewrite bi_intuitionistically_id|]. *)
-  (*   - apply ltl_always_next_comm. *)
-  (*   - apply ltl_always_next_comm. *)
-  (* Qed. *)
+  Proof.
+    rewrite /IntoNext. destruct p.
+    - simpl. rewrite -ltl_always_next_comm. eauto.
+    - apply ltl_always_next_comm.
+  Qed.
 
   Global Instance into_next_always_id (P : tProp) :
     IntoNext true P P | 10.
-  Proof. Admitted.
+  Proof.
+    rewrite /IntoNext. simpl. rewrite ltl_always_next.
+    apply ltl_next_mono. eauto.
+  Qed.
 
   Lemma modality_next_mixin : modality_mixin (ltl_next)
     (MIEnvTransform (IntoNext true)) (MIEnvTransform (IntoNext false)).
@@ -1310,6 +1282,22 @@ Section ltl_proofmode.
   Global Instance ltl_next_combine (P Q : tProp) :
     CombineSepAs (○ P) (○ Q) (○ (P ∧ Q)).
   Proof. by rewrite /CombineSepAs bi_sep_and ltl_next_and. Qed.
+
+
+  Global Instance into_wand_next p (P Q R : tProp) :
+    IntoWand p p R P Q → IntoWand p p (○ R)%I (○ P)%I (○ Q)%I.
+  Proof. 
+    rewrite /IntoWand.
+    destruct p; simpl.
+    - intros HR. iIntros "#HR #HP".
+      iModIntro. iApply (HR with "HR HP").
+    - intros HR. iIntros "HR HP".
+      iAssert (○ (R ∧ P))%I with "[HR HP]" as "H".
+      { iApply ltl_next_and. iSplit; iFrame. }
+      iApply (ltl_next_mono with "H").
+      rewrite HR.
+      iIntros "[HPQ HP]". by iApply "HPQ".
+  Qed.
 
   Class ltl_eventually_equiv (P : tProp) :=
     ltl_eventually_conv : ∃ Q, P ≡ (◊ Q)%I.
