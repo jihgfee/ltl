@@ -15,6 +15,8 @@
 -arg -native-compiler -arg no
 # Fixing this one requires Coq 8.19
 -arg -w -arg -argument-scope-delimiter
+-arg -w -arg -notation-for-abbreviation
+-arg -w -arg -masking-absolute-name
 
 theories/ltl.v
 theories/examples.v
