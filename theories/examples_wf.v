@@ -137,16 +137,16 @@ Section examples.
 
 End examples.
 
-Notation "↓s Φ" := (↓ (λ osl, match osl with
+Notation "↓s Φ" := (↓ (λ osl, (match osl with
                               | Some (s,l) => Φ (Some s)
                               | None => Φ None
-                              end))%I (at level 20, right associativity) : bi_scope. 
+                              end):Prop))%I (at level 20, right associativity) : bi_scope.
 
-Notation "↓l Φ" := (↓ (λ osl, match osl with
+Notation "↓l Φ" := (↓ (λ osl, (match osl with
                               | Some (s,Some l) => Φ (Some l)
                               | Some (s,None) => Φ None
                               | None => Φ None
-                              end))%I (at level 20, right associativity) : bi_scope. 
+                              end):Prop))%I (at level 20, right associativity) : bi_scope.
 
 
 (* TODO! *)
@@ -229,7 +229,7 @@ Section simple_ex.
     clear Hsteps.
     inversion Hsteps'; simplify_eq.
     iFrame. 
-  Qed.  
+  Qed.
 
   Lemma my_property (n:nat) : 
     ↓s (λ os, os = Some 0) ⊢ (◊ ↓s (λ os, os = Some n)):ltl_prop nat unit steps.
