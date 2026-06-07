@@ -505,7 +505,7 @@ Section ltl.
       inversion H0; simplify_eq. econstructor.
       + rewrite ltl_and_unseal. done.
       + apply IH. rewrite ltl_and_unseal. split; done.
-    - (* <pers> (∃ a, Ψ a) ⊢ ∃ a, <pers> (Ψ a) *)      
+    - (* <pers> (∃ a, Ψ a) ⊢ ∃ a, <pers> (Ψ a) *)
       admit.
     - (* <pers> P ∗ Q ⊢ <pers> P *)
       intros.
@@ -1148,6 +1148,22 @@ Section ltl_lemmas.
     P ∗ Q ⊣⊢ P ∧ Q.
   Proof. done. Qed.
 
+  Lemma ltl_eventually_always_combine (P Q : tProp) :
+    (□ P ∧ ◊Q) ⊢ (◊ (Q ∧ □ P)).
+  Proof.
+    apply bi.impl_elim_r'.
+    apply ltl_until_ind.
+    { iIntros "HQ HP". iApply ltl_eventually_intro_now. iFrame. }
+    iIntros "[H1 [H2 _]] HP".
+    iDestruct (ltl_next_always_combine with "[HP H2]") as "H".
+    { iSplitL "HP"; by done. }
+    iEval (rewrite -ltl_eventually_idemp).
+    iEval (rewrite -ltl_eventually_intro_next).
+    iStopProof. rewrite ltl_sep_and. rewrite !ltl_next_and.
+    apply ltl_next_mono.
+    iIntros "(H1&H2&H3)". by iApply "H2".
+  Qed.
+
   (** Proofmode stuff *)
 
   Lemma bi_sep_and (P Q : tProp) :
@@ -1164,6 +1180,14 @@ Section ltl_lemmas.
     intros. split.
     - apply ltl_next_mono. rewrite H. done.
     - apply ltl_next_mono. rewrite H. done.
+  Qed.
+
+  Global Instance ltl_until_proper : Proper ((≡) ==> (≡) ==> (≡)) (@ltl_until S L Rel).
+  Proof.
+    constructor.
+    intros. split.
+    - apply ltl_until_mono; [by rewrite H|by rewrite H0].
+    - apply ltl_until_mono; [by rewrite H|by rewrite H0].
   Qed.
 
 End ltl_lemmas.
@@ -1314,6 +1338,14 @@ Section ltl_proofmode.
     rewrite ltl_eventually_next_comm. rewrite HQ. done.
   Qed.
 
+  Lemma envs_clear_delete_spatial_eq {PROP} i b (Δ : envs PROP) :
+    envs_clear_spatial (envs_delete false i b Δ) = envs_clear_spatial Δ.
+  Proof.
+    destruct b.
+    - by rewrite envs_delete_intuitionistic.
+    - by destruct Δ.
+  Qed.
+
   Lemma tac_eventually i j b Δ Δ2 Δ3 (P Q : tProp) :
     ltl_eventually_equiv Q →
     envs_lookup i Δ = Some (b, ◊ P)%I →
@@ -1321,7 +1353,27 @@ Section ltl_proofmode.
     envs_app false (Esnoc Enil j P) Δ2 = Some Δ3 →
     envs_entails Δ3 Q →
     envs_entails Δ Q.
-  Proof. Admitted.
+  Proof.
+    intros Heq.
+    intros Hi HΔ2 HΔ3 HQ.
+    rewrite envs_entails_unseal.
+    rewrite envs_entails_unseal in HQ.
+    destruct Heq as [R Heq]. rewrite Heq.
+    rewrite -(ltl_eventually_idemp R).
+    rewrite (envs_lookup_sound' _ false) //; simpl.
+    rewrite bi.intuitionistically_if_elim.
+    rewrite envs_clear_spatial_sound.
+    rewrite envs_clear_delete_spatial_eq.
+    rewrite bi.sep_assoc bi.sep_elim_l.
+    rewrite env_spatial_is_nil_intuitionistically; [|done].
+    rewrite bi.sep_comm  bi.sep_and.
+    rewrite ltl_eventually_always_combine.
+    apply ltl_eventually_mono.
+    rewrite bi.intuitionistically_elim.
+    rewrite -Heq -HQ HΔ2.
+    rewrite envs_app_singleton_sound; [|done].
+    apply bi.wand_elim_r.
+  Qed.
 
 End ltl_proofmode.
 
