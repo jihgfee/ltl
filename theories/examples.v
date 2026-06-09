@@ -245,14 +245,14 @@ Section simple_ex.
   Proof.   
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
-    revert n i H1 H2. induction j; intros n i H1 H2.
-    { simplify_eq. rewrite right_id. iApply ltl_eventually_intro_now. }
+    iInduction j as [|j IH] forall (i H1 H2).
+    { simplify_eq. rewrite right_id. iIntros "H". by iModEvIntro. }
     iIntros "H".
     iDestruct (step with "H") as "H".
     iApply ltl_next_eventually. iModIntro.
-    iDestruct (IHj with "H") as "H".
-    { instantiate (1:=n). rewrite -H1. lia. }
-    { lia. }
+    iDestruct ("IH" with "[] [] H") as "H".
+    { subst. iPureIntro. lia. }
+    { iPureIntro. lia. }
     done.
   Qed.
 
@@ -309,8 +309,9 @@ Section advanced_ex.
     ↓s (λ os, os = Some (i,b)) ∪ ↓s (λ os, os = Some (i+1,negb b)) : tProp state' label' steps'.
   Proof.
     iDestruct (fair b) as "Hfair".
-    iApply (ltl_until_ind with "Hfair").
-    { iIntros "Hl Hs".
+    iApply (ltl_eventually_ind with "[] Hfair").
+    iIntros "!> [Hl|H]".
+    { iIntros "Hs".
       iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
       iDestruct (step_b with "Hs") as "[Hs|Hs]"; last first.
       { iDestruct "Hs" as "[Hs Hs'']".
@@ -319,7 +320,8 @@ Section advanced_ex.
       iDestruct "Hs" as "[_ Hs'']".
       iApply ltl_until_intro_next. iFrame.
       iModIntro. iApply ltl_until_intro_now. done. }
-    iIntros "[Hl [IH _]] Hs".
+    iDestruct "H" as "[Hl IH]".
+    iIntros "Hs".
     iDestruct (ltl_dup with "Hs") as "[Hs Hs2]".
     iDestruct (step_b with "Hs") as "[[Hl' Hs']|[Hl' Hs']]".
     { iApply ltl_until_intro_next. iFrame. iModIntro.
@@ -332,18 +334,16 @@ Section advanced_ex.
   Proof.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. }
-    revert n i b H1 H2. induction j; intros n i b H1 H2.
+    iInduction j as [|j IHj] forall (n i b H1 H2).
     { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro_now. done. }
     iIntros "H".
     iDestruct (my_property'' with "H") as "H'".
-    iApply (ltl_until_ind with "H'").
-    { iIntros "H".
-      iDestruct (IHj with "H") as "H".
-      { instantiate (1:=n). rewrite -H1. lia. }
-      { lia. }
+    iApply (ltl_until_ind with "[] H'").
+    iIntros "!> [H|(H1&H3&H2)]".
+    { iDestruct ("IHj" with "[] [] H") as "H".
+      { instantiate (1:=n). rewrite -H1. iPureIntro. lia. }
+      { iPureIntro. lia. }
       done. }
-    iIntros "(H1&H2&H3)".
-    clear IHj.
     rewrite ltl_next_exists.
     iDestruct "H2" as (b') "H2".
     iExists b'.
