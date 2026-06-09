@@ -429,7 +429,7 @@ Section ltl.
   Lemma ltl_bi_persistently_mixin :
     BiPersistentlyMixin
       ltl_entails ltl_emp ltl_and
-      (@ltl_exist S L Rel) ltl_and ltl_persistently.
+      ltl_and ltl_persistently.
   Proof.
     split.
     - apply ne_proper. rewrite /ltl_persistently ltl_always_unseal.
@@ -505,8 +505,6 @@ Section ltl.
       inversion H0; simplify_eq. econstructor.
       + rewrite ltl_and_unseal. done.
       + apply IH. rewrite ltl_and_unseal. split; done.
-    - (* <pers> (∃ a, Ψ a) ⊢ ∃ a, <pers> (Ψ a) *)
-      admit.
     - (* <pers> P ∗ Q ⊢ <pers> P *)
       intros.
       constructor. intros. rewrite ltl_and_unseal in H.
@@ -516,7 +514,9 @@ Section ltl.
       rewrite ltl_and_unseal. split.
       + rewrite /ltl_persistently ltl_always_unseal in H. by inversion H.
       + done.
-  Admitted.
+    Unshelve.
+    all: try econstructor. by inversion tr_wf0.
+  Qed.
 
   Lemma ltl_bi_later_mixin :
     BiLaterMixin
