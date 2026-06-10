@@ -423,8 +423,8 @@ Section ltl_always.
     Unshelve. done.
   Qed.
 
-  Lemma ltl_always_taut :
-    ltl_entails (ltl_pure True) (ltl_always (ltl_pure true)).
+  Lemma ltl_always_emp :
+    ltl_entails (ltl_pure True) (ltl_always (ltl_pure True)).
   Proof.
     rewrite ltl_always_unseal. econstructor. intros.
     revert tr H.
@@ -549,7 +549,7 @@ Section ltl.
     - (* <pers> P ⊢ <pers> <pers> P *)
       apply ltl_always_idemp.
     - (* emp ⊢ <pers> emp *)
-      apply ltl_always_taut.
+      apply ltl_always_emp.
     - (* (<pers> P) ∧ (<pers> Q) ⊢ <pers> (P ∧ Q) *)
       apply ltl_always_and.
     - (* <pers> P ∗ Q ⊢ <pers> P *)
