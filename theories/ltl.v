@@ -70,7 +70,7 @@ Section trace.
         | ⟨ s ⟩ => ⟨ ⟩
         | (s -[ ℓ ]-> xs) => after n (Some xs)
         end
-    end.  
+    end.
 
 End trace.
 
@@ -727,7 +727,7 @@ Section ltl_lemmas.
 
   Lemma bi_intuitionistically_unseal' (P : tProp) tr :
     @bi_intuitionistically (@ltlI S L Rel) P tr ≡ ltl_always P tr.
-  Proof. 
+  Proof.
     rewrite /bi_intuitionistically.
     rewrite /bi_affinely.
     unseal. simpl. rewrite /ltl_and_def /ltl_pure_def. simpl.
@@ -857,7 +857,7 @@ Section ltl_lemmas.
       { done. }
       eapply IH.
       done.
-    - inversion Halways. inversion H. econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal. 
+    - inversion Halways. inversion H. econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal.
       econstructor. done.
       Unshelve.
       all: eauto.
@@ -900,7 +900,7 @@ Section ltl_lemmas.
     - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
     - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
   Qed.
-  
+
   (* Proofmode stuff *)
 
   Lemma bi_sep_and (P Q : tProp) :
@@ -1062,7 +1062,7 @@ Section ltl_proofmode.
   Proof.
     split; simpl; eauto.
     - intros. split.
-      + intros. rewrite -ltl_always_next_comm. 
+      + intros. rewrite -ltl_always_next_comm.
         iIntros "#HP !>". iStopProof.
         rewrite /IntoNext in H. apply H.
       + intros. by rewrite ltl_next_and.
@@ -1082,7 +1082,7 @@ Section ltl_proofmode.
 
   Global Instance into_wand_next p (P Q R : tProp) :
     IntoWand p p R P Q → IntoWand p p (○ R)%I (○ P)%I (○ Q)%I.
-  Proof. 
+  Proof.
     rewrite /IntoWand.
     destruct p; simpl.
     - intros HR. iIntros "#HR #HP".
@@ -1104,7 +1104,7 @@ Section ltl_derived_constructs.
   Notation tProp := (tProp S L Rel).
 
   (* Eventually *)
-  Definition ltl_until_F (P Q : tProp) : (() → tProp) → (() → tProp) := 
+  Definition ltl_until_F (P Q : tProp) : (() → tProp) → (() → tProp) :=
     (λ (X : unit → tProp) _, Q ∨ (P ∧ ○ (X ())))%I.
 
   Instance ltl_until_F_mono P Q : BiMonoPred (ltl_until_F P Q).
@@ -1129,20 +1129,20 @@ Section ltl_derived_constructs.
   Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
   Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi_scope.
 
-  Lemma ltl_until_unfold (P Q : tProp) : 
+  Lemma ltl_until_unfold (P Q : tProp) :
     (P ∪ Q)%I ≡ (Q ∨ P ∧ ○ (P ∪ Q))%I.
-  Proof. rewrite ltl_until_unseal. by rewrite /ltl_until_def {1}least_fixpoint_unfold. Qed. 
+  Proof. rewrite ltl_until_unseal. by rewrite /ltl_until_def {1}least_fixpoint_unfold. Qed.
 
   Lemma ltl_until_intro (P Q : tProp) :
     Q ∨ P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
   Proof. rewrite {2}ltl_until_unfold. done. Qed.
 
-  Lemma ltl_until_ind P Q R : 
+  Lemma ltl_until_ind P Q R :
     □ (Q ∨ (P ∧ ○ (P ∪ Q) ∧ ○ R) -∗ R) -∗
     P ∪ Q -∗ R.
   Proof.
     iIntros "#IH HPQ".
-    rewrite ltl_until_unseal. 
+    rewrite ltl_until_unseal.
     iApply (least_fixpoint_ind with "[] HPQ").
     iIntros "!>" (?) "[Q|[HP HR]]".
     { iApply "IH". by eauto. }
@@ -1169,10 +1169,10 @@ Section ltl_derived_constructs.
   Qed.
 
   Lemma ltl_until_mono_alt P1 P2 Q1 Q2 :
-    (P1 ⊢ P2) → (Q1 ⊢ Q2) → 
+    (P1 ⊢ P2) → (Q1 ⊢ Q2) →
     P1 ∪ Q1 ⊢ P2 ∪ Q2.
   Proof.
-    intros. 
+    intros.
     iApply ltl_until_mono.
     iApply H.
     iApply H0.
@@ -1191,12 +1191,12 @@ Section ltl_derived_constructs.
     - iEval (rewrite ltl_until_unfold).
       iRight. iDestruct "H" as "[$ H]".
       iModIntro. iApply (ltl_until_mono with "[] [] H").
-      + eauto. 
+      + eauto.
       + iIntros "!>[$ _]".
     - iEval (rewrite ltl_until_unfold).
       iRight. iDestruct "H" as "[$ H]".
       iModIntro. iApply (ltl_until_mono with "[] [] H").
-      + eauto. 
+      + eauto.
       + iIntros "!>[_ $]".
   Qed.
 
@@ -1210,7 +1210,7 @@ Section ltl_derived_constructs.
       + iModIntro. rewrite ltl_until_unfold. by iLeft.
       + iModIntro. iEval (rewrite ltl_until_unfold). iRight.
         iDestruct "H" as "[$ [HP HQ]]". iModIntro. done.
-    - iIntros "H". 
+    - iIntros "H".
       iEval (rewrite ltl_until_unfold).
       rewrite ltl_next_and.
       iEval (rewrite (ltl_next_or Q)).
@@ -1229,7 +1229,7 @@ Section ltl_derived_constructs.
       iRight.
       done.
   Qed.
-  
+
   (* Derived *)
 
   Lemma ltl_until_idemp (P Q : tProp) :
@@ -1245,7 +1245,7 @@ Section ltl_derived_constructs.
       { rewrite ltl_until_unfold. iLeft. rewrite ltl_until_unfold. iLeft. done. }
       iEval (rewrite ltl_until_unfold). iRight. iFrame.
   Qed.
-  
+
   Lemma ltl_until_intro_now (P Q : tProp) :
     Q ⊢ P ∪ Q.
   Proof. rewrite -ltl_until_intro. apply bi.or_intro_l. Qed.
@@ -1341,8 +1341,8 @@ Section ltl_derived_constructs.
     ((○ ◊ P) ∧ ○ Q ⊢ Q) →
     ◊ P ⊢ Q.
   Proof.
-    intros H1 H2. 
-    iApply ltl_eventually_ind. 
+    intros H1 H2.
+    iApply ltl_eventually_ind.
     iDestruct H1 as "#H1".
     iDestruct H2 as "#H2".
     iModIntro. iIntros "[HP|HP]"; [by iApply "H1"|by iApply "H2"].
@@ -1386,7 +1386,7 @@ Section ltl_derived_constructs.
     rewrite -ltl_eventually_and.
     by eapply ltl_eventually_mono_alt.
   Qed.
-  
+
   Global Instance into_next_eventually (P Q : tProp) :
     IntoNext false P Q →
     IntoNext false (◊ P) (◊ Q).
@@ -1404,7 +1404,7 @@ Section ltl_derived_constructs.
   Global Instance ltl_eventually_equiv_refl (P : tProp) :
     ltl_eventually_equiv (◊ P).
   Proof. exists P. done. Qed.
-    
+
   Global Instance ltl_eventually_equiv_next (P : tProp) :
     ltl_eventually_equiv P →
     ltl_eventually_equiv (○ P).
