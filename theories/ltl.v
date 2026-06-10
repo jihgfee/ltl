@@ -256,7 +256,6 @@ Section primitive.
   Proof. intros ?. unseal; by split. Qed.
   Lemma pure_elim' (φ : Prop) P : (φ → True ⊢ P) → ⌜ φ ⌝ ⊢ P.
   Proof. unseal=> HP; split=> n ?. by apply HP. Qed.
-  (* Lemma test {A} (φ : A → tProp S L Rel) : ⊢ (∀ a, φ a)%ltl. *)
   Lemma pure_forall_2 {A} (φ : A → Prop) :
     ((∀ a, ⌜ φ a ⌝):tProp) ⊢ ⌜ ∀ a, φ a ⌝.
   Proof. by unseal. Qed.
@@ -355,6 +354,123 @@ Section ltl_always.
   Definition ltl_always_unseal :
     @ltl_always = @ltl_always_def := seal_eq ltl_always_aux.
 
+  Instance ne_proper (f : tProp → tProp) `{!Proper ((≡) ==> (≡)) f} : NonExpansive f.
+  Proof.
+    constructor. intros.
+    apply Proper0. done.
+  Qed.
+
+  Lemma ltl_always_ne : NonExpansive ltl_always.
+  Proof.
+    apply ne_proper. rewrite ltl_always_unseal.
+    constructor.
+    intros.
+    constructor.
+    + intros.
+      revert H tr H0.
+      cofix IH.
+      intros Heq tr Htr.
+      inversion Htr; simplify_eq.
+      { econstructor. apply Heq. done. }
+      { econstructor; apply Heq; done. }
+      econstructor.
+      * apply Heq; done.
+      * apply IH; done.
+    + intros.
+      revert H tr H0.
+      cofix IH.
+      intros Heq tr Htr.
+      inversion Htr; simplify_eq.
+      { econstructor. apply Heq. done. }
+      { econstructor; apply Heq; done. }
+      econstructor.
+      * apply Heq; done.
+      * apply IH; done.
+  Qed.
+
+  Lemma ltl_always_mono (P Q : tProp) :
+    (ltl_entails P Q)%I → ltl_entails (ltl_always P) (ltl_always Q).
+  Proof.
+    rewrite ltl_always_unseal.
+    intros. constructor. intros.
+    revert tr H0.
+    cofix IH.
+    intros tr Htr.
+    inversion Htr; simplify_eq.
+    { econstructor. by apply H. }
+    + econstructor.
+      * by apply H.
+      * by apply H.
+    + econstructor.
+      * by apply H.
+      * by apply IH.
+  Qed.
+
+  Lemma ltl_always_idemp (P : tProp) :
+    ltl_entails (ltl_always P) (ltl_always (ltl_always P)).
+  Proof.
+    intros. constructor. rewrite ltl_always_unseal.
+    cofix IH.
+    intros tr Htr.
+    inversion Htr; simplify_eq.
+    + econstructor. done.
+    + econstructor.
+      * done.
+      * econstructor. done.
+    + econstructor.
+      * done.
+      * apply IH. done.
+    Unshelve. done.
+  Qed.
+
+  Lemma ltl_always_taut :
+    ltl_entails (ltl_pure True) (ltl_always (ltl_pure true)).
+  Proof.
+    rewrite ltl_always_unseal. econstructor. intros.
+    revert tr H.
+    cofix IH.
+    intros tr Htr.
+    destruct tr as [[[]|] ?].
+    { econstructor. done. simpl. simpl. rewrite ltl_pure_unseal. done. }
+    + econstructor. done. apply IH. rewrite ltl_pure_unseal. done.
+    + econstructor. done.
+    Unshelve. all: try econstructor. all: by inversion tr_wf0.
+  Qed.
+
+  Lemma ltl_always_and (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) (ltl_always Q)) (ltl_always (ltl_and P Q)).
+  Proof.
+    intros.
+    rewrite ltl_always_unseal. econstructor. intros.
+    revert tr H.
+    cofix IH.
+    intros tr Htr.
+    rewrite ltl_and_unseal in Htr. inversion Htr.
+    inversion H; simplify_eq.
+    { inversion H0; simplify_eq. econstructor. rewrite ltl_and_unseal. split; done. }
+    { inversion H0; simplify_eq. econstructor; rewrite ltl_and_unseal; split; done. }
+    inversion H0; simplify_eq. econstructor.
+    + rewrite ltl_and_unseal. done.
+    + apply IH. rewrite ltl_and_unseal. split; done.
+  Qed.
+
+  Lemma ltl_always_affine (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) Q) (ltl_always P).
+  Proof.
+    intros.
+    constructor. intros. rewrite ltl_and_unseal in H.
+    destruct H. done.
+  Qed.
+
+  Lemma ltl_always_sep_and (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) Q) (ltl_and P Q).
+  Proof.
+    intros. constructor. intros. rewrite ltl_and_unseal in H. destruct H.
+    rewrite ltl_and_unseal. split.
+    + rewrite ltl_always_unseal in H. by inversion H.
+    + done.
+  Qed.
+
 End ltl_always.
 
 Section ltl.
@@ -420,12 +536,6 @@ Section ltl.
       apply impl_elim_l'.
   Qed.
 
-  Instance ne_proper (f : tProp → tProp) `{!Proper ((≡) ==> (≡)) f} : NonExpansive f.
-  Proof.
-    constructor. intros.
-    apply Proper0. done.
-  Qed.
-
   (* TODO: Move out proofs to axiom modal laws *)
   Lemma ltl_bi_persistently_mixin :
     BiPersistentlyMixin
@@ -433,90 +543,19 @@ Section ltl.
       ltl_and ltl_persistently.
   Proof.
     split.
-    - apply ne_proper. rewrite /ltl_persistently ltl_always_unseal.
-      constructor.
-      intros.
-      constructor.
-      + intros.
-        revert H tr H0.
-        cofix IH.
-        intros Heq tr Htr.
-        inversion Htr; simplify_eq.
-        { econstructor. apply Heq. done. }
-        { econstructor; apply Heq; done. }
-        econstructor.
-        * apply Heq; done.
-        * apply IH; done.
-      + intros.
-        revert H tr H0.
-        cofix IH.
-        intros Heq tr Htr.
-        inversion Htr; simplify_eq.
-        { econstructor. apply Heq. done. }
-        { econstructor; apply Heq; done. }
-        econstructor.
-        * apply Heq; done.
-        * apply IH; done.
+    - apply ltl_always_ne.
     - (* (P ⊢ Q) → <pers> P ⊢ <pers> Q *)
-      rewrite /ltl_persistently ltl_always_unseal.
-      intros. constructor. intros.
-      rewrite /ltl_persistently. intros.
-      revert tr H0.
-      cofix IH.
-      intros tr Htr.
-      inversion Htr; simplify_eq.
-      { econstructor. by apply H. }
-      + econstructor.
-        * by apply H.
-        * by apply H.
-      + econstructor.
-        * by apply H.
-        * by apply IH.  
+      apply ltl_always_mono.
     - (* <pers> P ⊢ <pers> <pers> P *)
-      intros. constructor. rewrite /ltl_persistently ltl_always_unseal.
-      cofix IH.
-      intros tr Htr.
-      inversion Htr; simplify_eq.
-      + econstructor. done.
-      + econstructor.
-        * done.
-        * econstructor. done.
-      + econstructor.
-        * done.
-        * apply IH. done. 
+      apply ltl_always_idemp.
     - (* emp ⊢ <pers> emp *)
-      rewrite /ltl_persistently ltl_always_unseal. econstructor. intros.
-      revert tr H.
-      cofix IH.
-      intros tr Htr.
-      destruct tr as [[[]|] ?].
-      { econstructor. done. simpl. rewrite /ltl_emp. simpl. rewrite ltl_pure_unseal. done. }
-      + econstructor. done. apply IH. rewrite /ltl_emp ltl_pure_unseal. done.
-      + econstructor. done.
-    - (* (∀ a, <pers> (Ψ a)) ⊢ <pers> (∀ a, Ψ a) *)
-      intros.
-      rewrite /ltl_persistently ltl_always_unseal. econstructor. intros.
-      revert tr H.
-      cofix IH.
-      intros tr Htr.
-      rewrite ltl_and_unseal in Htr. inversion Htr.
-      inversion H; simplify_eq.
-      { inversion H0; simplify_eq. econstructor. rewrite ltl_and_unseal. split; done. }
-      { inversion H0; simplify_eq. econstructor; rewrite ltl_and_unseal; split; done. }
-      inversion H0; simplify_eq. econstructor.
-      + rewrite ltl_and_unseal. done.
-      + apply IH. rewrite ltl_and_unseal. split; done.
+      apply ltl_always_taut.
+    - (* (<pers> P) ∧ (<pers> Q) ⊢ <pers> (P ∧ Q) *)
+      apply ltl_always_and.
     - (* <pers> P ∗ Q ⊢ <pers> P *)
-      intros.
-      constructor. intros. rewrite ltl_and_unseal in H.
-      destruct H. done.
+      apply ltl_always_affine.
     - (* <pers> P ∧ Q ⊢ P ∗ Q *)
-      intros. constructor. intros. rewrite ltl_and_unseal in H. destruct H.
-      rewrite ltl_and_unseal. split.
-      + rewrite /ltl_persistently ltl_always_unseal in H. by inversion H.
-      + done.
-   Unshelve.
-   all: try econstructor. by inversion tr_wf0.
+      apply ltl_always_sep_and.
   Qed.
 
   Lemma ltl_bi_later_mixin :
