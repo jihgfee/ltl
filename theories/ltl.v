@@ -1172,10 +1172,26 @@ Section ltl_derived_constructs.
     (P1 ⊢ P2) → (Q1 ⊢ Q2) →
     P1 ∪ Q1 ⊢ P2 ∪ Q2.
   Proof.
-    intros.
+    intros HP HQ.
     iApply ltl_until_mono.
-    iApply H.
-    iApply H0.
+    iApply HP.
+    iApply HQ.
+  Qed.
+
+  Lemma ltl_until_mono' P1 P2 Q1 Q2 :
+    □ (P1 → P2) ∧ □ (Q1 → Q2) ⊢
+    P1 ∪ Q1 → P2 ∪ Q2.
+  Proof.
+    iIntros "[#HP #HQ] HPQ".
+    iApply (ltl_until_ind with "[] HPQ").
+    iModIntro.
+    iDestruct 1 as "[H|H]".
+    { rewrite ltl_until_unfold. iLeft. by iApply "HQ". }
+    iEval (rewrite ltl_until_unfold). iRight.
+    iDestruct "H" as "[H IH]".
+    iSplit.
+    - by iApply "HP".
+    - iDestruct "IH" as "[_ $]".
   Qed.
 
   Lemma ltl_until_and (P Q1 Q2 : tProp) :
@@ -1253,6 +1269,20 @@ Section ltl_derived_constructs.
   Lemma ltl_until_intro_next (P Q : tProp) :
     P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
   Proof. rewrite -{2}ltl_until_intro. apply bi.or_intro_r. Qed.
+
+  Lemma ltl_until_always_combine (P Q R : tProp) :
+    (□ P ∧ Q ∪ R) ⊢ ((Q ∪ (R ∧ □ P))).
+  Proof.
+    iIntros "[#HP HQ]".
+    iApply (ltl_until_ind with "[] HQ").
+    iIntros "!> [HQ|H]".
+    { iApply ltl_until_intro_now. iFrame "#∗". }
+    (* iEval (rewrite -ltl_until_idemp). *)
+    iEval (rewrite -ltl_until_intro_next).
+    iDestruct "H" as "[$ H]".
+    iModIntro.
+    iDestruct "H" as "[_ $]".
+  Qed.
 
   Global Instance ltl_until_proper : Proper ((≡) ==> (≡) ==> (≡)) (ltl_until).
   Proof.
@@ -1398,19 +1428,26 @@ Section ltl_derived_constructs.
     done.
   Qed.
 
-  Class ltl_eventually_equiv (P : tProp) :=
-    ltl_eventually_conv : ∃ Q, P ≡ (◊ Q)%I.
+  Class ltl_until_equiv (P Q R : tProp) :=
+    ltl_until_conv : P ≡ (Q ∪ R)%I.
 
-  Global Instance ltl_eventually_equiv_refl (P : tProp) :
-    ltl_eventually_equiv (◊ P).
-  Proof. exists P. done. Qed.
+  Global Instance ltl_until_equiv_refl (P Q : tProp) :
+    ltl_until_equiv (P ∪ Q) P Q | 0.
+  Proof. done. Qed.
 
-  Global Instance ltl_eventually_equiv_next (P : tProp) :
-    ltl_eventually_equiv P →
-    ltl_eventually_equiv (○ P).
+  Global Instance ltl_until_equiv_next (P Q R : tProp) :
+    ltl_until_equiv P Q R →
+    ltl_until_equiv (○ P) (○ Q) (○ R) | 2.
   Proof.
-    intros. destruct H as [Q HQ]. exists (○ Q)%I.
-    rewrite ltl_eventually_next_comm. rewrite HQ. done.
+    intros. rewrite /ltl_until_equiv. rewrite ltl_until_next_comm. by rewrite H.
+  Qed.
+
+  Global Instance ltl_eventually_equiv_next' (P Q : tProp) :
+    ltl_until_equiv P True Q →
+    ltl_until_equiv (○ P) True (○ Q) | 1.
+  Proof.
+    intros. rewrite /ltl_until_equiv.
+    rewrite ltl_eventually_next_comm. rewrite H. done.
   Qed.
 
   Lemma envs_clear_delete_spatial_eq {PROP} i b (Δ : envs PROP) :
@@ -1421,33 +1458,43 @@ Section ltl_derived_constructs.
     - by destruct Δ.
   Qed.
 
-  Lemma tac_eventually i j b Δ Δ2 Δ3 (P Q : tProp) :
-    ltl_eventually_equiv Q →
-    envs_lookup i Δ = Some (b, ◊ P)%I →
+  Lemma tac_until i j b Δ Δ2 Δ3 Δ3' (P P' Q Q' R R' : tProp) :
+    ltl_until_equiv P Q R →
+    envs_lookup i Δ = Some (b, P')%I →
+    ltl_until_equiv P' Q' R' →
     envs_clear_spatial Δ = Δ2 →
-    envs_app false (Esnoc Enil j P) Δ2 = Some Δ3 →
-    envs_entails Δ3 Q →
-    envs_entails Δ Q.
+    envs_app false (Esnoc Enil j R') Δ2 = Some Δ3 →
+    envs_app false (Esnoc Enil j Q') Δ2 = Some Δ3' →
+    envs_entails Δ3' Q →
+    envs_entails Δ3 P →
+    envs_entails Δ P.
   Proof.
-    intros Heq.
-    intros Hi HΔ2 HΔ3 HQ.
+    intros HeqP.
+    intros Hi HeqP' HΔ2 HΔ3 HΔ3' HQ' HQ.
     rewrite envs_entails_unseal.
     rewrite envs_entails_unseal in HQ.
-    destruct Heq as [R Heq]. rewrite Heq.
-    rewrite -(ltl_eventually_idemp R).
-    rewrite (envs_lookup_sound' _ false) //; simpl.
+    rewrite HeqP.
+    rewrite -(ltl_until_idemp).
+    rewrite (envs_lookup_sound' _ false) //.
     rewrite bi.intuitionistically_if_elim.
     rewrite envs_clear_spatial_sound.
     rewrite envs_clear_delete_spatial_eq.
     rewrite bi.sep_assoc bi.sep_elim_l.
     rewrite env_spatial_is_nil_intuitionistically; [|done].
-    rewrite bi.sep_comm  bi.sep_and.
-    rewrite ltl_eventually_always_combine.
-    apply ltl_eventually_mono_alt.
-    rewrite bi.intuitionistically_elim.
-    rewrite -Heq -HQ HΔ2.
-    rewrite envs_app_singleton_sound; [|done].
-    apply bi.wand_elim_r.
+    rewrite bi.sep_comm bi.sep_and.
+    rewrite {1}HeqP'.
+    apply bi.impl_elim_l'.
+    rewrite -ltl_until_mono'.
+    rewrite -bi.intuitionistically_and.
+    f_equiv.
+    apply bi.and_intro.
+    - rewrite envs_entails_unseal in HQ'.
+      rewrite -HQ' HΔ2.
+      rewrite envs_app_singleton_sound; [|apply HΔ3'].
+      simpl. eauto.
+    - rewrite -HeqP -HQ HΔ2.
+      rewrite envs_app_singleton_sound; [|apply HΔ3].
+      simpl. eauto.
   Qed.
 
 End ltl_derived_constructs.
@@ -1455,12 +1502,12 @@ End ltl_derived_constructs.
 Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
 Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi_scope.
 
-Tactic Notation "iModEvCore" constr(pat) "as" tactic3(tac) :=
+Tactic Notation "iModUnCore" constr(pat) "as" tactic3(tac) :=
   let Hnew := iFresh in
-  eapply (tac_eventually pat Hnew); [tc_solve|done..|pm_reduce; tac Hnew].
-Tactic Notation "iModEv" constr(pat) "as" constr(pat2) :=
-  iModEvCore pat as (fun H => iDestruct H as pat2).
-Tactic Notation "iModEv" constr(pat) :=
-  iModEvCore pat as (fun H => iDestruct H as pat).
-Tactic Notation "iModEvIntro" :=
-  iEval (rewrite -ltl_eventually_intro_now).
+  eapply (tac_until pat Hnew); [tc_solve|done|tc_solve|done..|pm_reduce; tac Hnew; try eauto|pm_reduce; tac Hnew].
+Tactic Notation "iModUn" constr(pat) "as" constr(pat2) :=
+  iModUnCore pat as (fun H => iDestruct H as pat2).
+Tactic Notation "iModUn" constr(pat) :=
+  iModUnCore pat as (fun H => iDestruct H as pat).
+Tactic Notation "iModUnIntro" :=
+  iEval (rewrite -ltl_until_intro_now).

@@ -8,8 +8,9 @@ Section examples.
 
   Import tProp.
 
-  Lemma temporal_primer (P Q : tProp) : ⊢ □ (P → Q) → ▷ P → ▷ Q.
-  Proof. iIntros "#HPQ HP". iModIntro. iApply "HPQ". done. Qed.
+
+  Lemma propositional_primer (P Q R : tProp) : ⊢ (P → Q) → (Q → R) → P → R.
+  Proof. iIntros "HPQ HQR HP". iDestruct ("HPQ" with "HP") as "HQ". iApply "HQR". done. Qed.
 
   Lemma globally_primer (P Q : tProp) : ⊢ □ (P → Q) → □ P → Q → □ Q.
   Proof. iIntros "#HPQ #HP HQ". iModIntro. iApply "HPQ". done. Qed.
@@ -17,17 +18,25 @@ Section examples.
   Lemma next_primer (P Q R : tProp) : ⊢ □ ○ (P → Q) → ○ P → Q → ○ R → ○ Q.
   Proof. iIntros "#HPQ HP HQ HR". iModIntro. iApply "HPQ". done. Qed.
 
-  Lemma eventually_primer (P Q R : tProp) : ⊢ □ (P → ◊ Q) → ◊ ○ P → ◊ ○ R → ○ ◊ Q.
-  Proof. iIntros "#HPQ HP HR". iModEv "HP". iModIntro. iApply "HPQ". done. Qed.
+  Lemma eventually_primer (P Q R : tProp) : ⊢ □ (P → ◊ Q) → ◊ ○ P → ◊ ○ R →  ○ ◊ Q.
+  Proof. iIntros "#HPQ HP HR". iModUn "HP". iModIntro. iApply "HPQ". done. Qed.
+
+  Lemma until_primer (P P' Q R : tProp) :
+    ⊢ □ (R → P' ∪ Q) → □ (P → P') → (○ P ∪ ○ R) → ◊ ○ R → ○ (P' ∪ Q).
+  Proof.
+    iIntros "#HPQ #HP' HP HR". iModUn "HP".
+    - iModIntro. iApply "HP'". done.
+    - iModIntro. iApply "HPQ". done.
+  Qed.
 
   Lemma running_example (P Q : tProp) : ⊢ □ (P → ○ ◊ Q) → ◊ P → ○ ◊ Q.
-  Proof. iIntros "#HPQ HP". iModEv "HP". by iApply "HPQ". Qed.
+  Proof. iIntros "#HPQ HP". iModUn "HP". by iApply "HPQ". Qed.
 
   Lemma running_example_extended (P Q R : tProp) :
     ⊢ □ (P → ○ ◊ Q) → □ (Q → ○ ◊ R) → ◊ P → ○ ○ ◊ R.
   Proof.
-    iIntros "#HPQ #HQR HP". iModEv "HP". iDestruct ("HPQ" with "HP") as "HQ".
-    iModIntro. iModEv "HQ". by iApply "HQR".
+    iIntros "#HPQ #HQR HP". iModUn "HP". iDestruct ("HPQ" with "HP") as "HQ".
+    iModIntro. iModUn "HQ". by iApply "HQR".
   Qed.
 
   Lemma ltl_always_introI (P : tProp) :
@@ -44,7 +53,7 @@ Section examples.
       by rewrite ltl_next_eventually. }
     iIntros "!> [HP _]".
     rewrite -ltl_eventually_next_comm.
-    iModEv "HP".
+    iModUn "HP".
     rewrite ltl_eventually_next_comm. by iApply HPQ.
   Qed.
 
@@ -52,7 +61,7 @@ Section examples.
     □ P ∧ ◊ (P → ○ ◊ Q) ⊢ ◊ Q.
   Proof.
     iIntros "[#HP HPQ]". 
-    iModEv "HPQ" as "HPQ".
+    iModUn "HPQ" as "HPQ".
     iApply ltl_next_eventually.
     by iApply ("HPQ" with "HP").
   Qed.
@@ -87,7 +96,7 @@ Section examples.
     iApply (ltl_always_introI with "[HP2]").
     { by iApply ltl_eventually_intro_now. }
     iIntros "!> HP". iApply ltl_eventually_next_comm.
-    iModEv "HP".
+    iModUn "HP".
     iDestruct ("HP1" with "HP") as "HP".
     by iApply ltl_eventually_next_comm.
   Qed.
@@ -130,9 +139,9 @@ Section examples.
     iIntros "(HP & #HPQ & HQR)".
     iModIntro.
     iDestruct ("HPQ" with "HP") as "#HQ".
-    iModEv "HQR".
+    iModUn "HQR".
     iDestruct ("HQR" with "HQ") as "HR".
-    by iModEvIntro.
+    by iModUnIntro.
   Qed.
 
   Lemma foo'' (P Q R : nat → tProp) :
@@ -142,7 +151,7 @@ Section examples.
     iIntros "(HP & #HPQ & HQR)".
     iModIntro. iDestruct "HP" as (n) "HP".
     iDestruct ("HPQ" with "HP") as (m) "#HQ".
-    iModEv "HQR". iModEvIntro. by iApply "HQR".
+    iModUn "HQR". iModUnIntro. by iApply "HQR".
   Qed.
 
 End examples.
@@ -246,7 +255,7 @@ Section simple_ex.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     iInduction j as [|j IH] forall (i H1 H2).
-    { simplify_eq. rewrite right_id. iIntros "H". by iModEvIntro. }
+    { simplify_eq. rewrite right_id. iIntros "H". by iModUnIntro. }
     iIntros "H".
     iDestruct (step with "H") as "H".
     iApply ltl_next_eventually. iModIntro.
