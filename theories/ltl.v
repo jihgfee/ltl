@@ -1283,6 +1283,53 @@ Section ltl_derived_constructs.
     iDestruct "H" as "[_ $]".
   Qed.
 
+  Lemma ltl_until_and_r' (P1 P2 Q1 Q2 : tProp) :
+    P1 ∪ Q1 ∧ P2 ∪ Q2 ⊢ (P1 ∧ P2) ∪ ((Q1 ∧ P2 ∪ Q2) ∨ (P1 ∪ Q1 ∧ Q2)).
+  Proof.
+    iIntros "[H1 H2]".
+    iRevert "H2".
+    iApply (ltl_until_ind with "[] H1").
+    iIntros "!> H1 H2".
+    rewrite {3}(ltl_until_unfold P2 Q2).
+    iDestruct "H1" as "[HQ1|(HP1&HPQ1&IH)]".
+    { iDestruct "H2" as "[HQ2|[HP2 HPQ2]]".
+      { iEval (rewrite ltl_until_unfold). iLeft.
+        iEval (rewrite ltl_until_unfold). iFrame. }
+      { iEval (rewrite ltl_until_unfold). iLeft. iLeft. iFrame.
+        iEval (rewrite ltl_until_unfold). iRight. iFrame. }
+    }
+    iDestruct "H2" as "[HQ2|[HP2 HPQ2]]".
+    { iEval (rewrite ltl_until_unfold). iLeft.
+      iEval (rewrite ltl_until_unfold). iRight.
+      iEval (rewrite ltl_until_unfold). iFrame. iRight. iFrame. }
+    iEval (rewrite ltl_until_unfold). iRight.
+    iFrame. iModIntro.
+    by iApply "IH".
+  Qed.
+
+  Lemma ltl_until_or (P Q1 Q2 : tProp) :
+    P ∪ (Q1 ∨ Q2) ⊢ P ∪ Q1 ∨ P ∪ Q2.
+  Proof.
+    iApply ltl_until_ind.
+    iIntros "!> [HQ|HP]".
+    { iDestruct "HQ" as "[HQ1|HQ2]".
+      - iLeft. by rewrite -ltl_until_intro_now.
+      - iRight. by rewrite -ltl_until_intro_now.
+    }
+    iDestruct "HP" as "(HP&HPQ&IH)".
+    rewrite -!ltl_until_next_comm.
+    rewrite {1}(ltl_next_or_r (P ∪ Q1)).
+    iDestruct "IH" as "[IH|IH]".
+    - iLeft. iEval (rewrite ltl_until_unfold).
+      iRight. iFrame.
+    - iRight. iEval (rewrite ltl_until_unfold).
+      iRight. iFrame.
+  Qed.
+
+  Lemma ltl_until_and_r (P1 P2 Q1 Q2 : tProp) :
+    P1 ∪ Q1 ∧ P2 ∪ Q2 ⊢ ((P1 ∧ P2) ∪ (Q1 ∧ (P2 ∪ Q2))) ∨ ((P1 ∧ P2) ∪ (P1 ∪ Q1 ∧ Q2)).
+  Proof. rewrite -ltl_until_or. apply ltl_until_and_r'. Qed.
+
   Global Instance ltl_until_proper : Proper ((≡) ==> (≡) ==> (≡)) (ltl_until).
   Proof.
     constructor.
@@ -1290,6 +1337,10 @@ Section ltl_derived_constructs.
     - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
     - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
   Qed.
+
+  Global Instance ltl_until_combine (P1 P2 Q1 Q2 : tProp) :
+    CombineSepAs (P1 ∪ Q1) (P2 ∪ Q2) (((P1 ∧ P2) ∪ (Q1 ∧ (P2 ∪ Q2))) ∨ ((P1 ∧ P2) ∪ (P1 ∪ Q1 ∧ Q2))) | 1.
+  Proof. rewrite /CombineSepAs. apply ltl_until_and_r. Qed.
 
   Lemma ltl_eventually_intro (P : tProp) :
     P ∨ ○ ◊ P ⊢ ◊ P.
@@ -1426,6 +1477,14 @@ Section ltl_derived_constructs.
     specialize HPQ. simpl in HPQ.
     done.
   Qed.
+
+  Lemma ltl_eventually_and_r (P Q : tProp) :
+    ◊ P ∧ ◊ Q ⊢ ◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q).
+  Proof. by rewrite ltl_until_and_r right_id. Qed.
+
+  Global Instance ltl_eventually_combine (P Q : tProp) :
+    CombineSepAs (◊ P) (◊ Q) (◊ (P ∧ ◊ Q) ∨ ◊ (◊ P ∧ Q)) | 0.
+  Proof. rewrite /CombineSepAs. apply ltl_eventually_and_r. Qed.
 
   Class ltl_until_equiv (P Q R : tProp) :=
     ltl_until_conv : P ≡ (Q ∪ R)%I.
