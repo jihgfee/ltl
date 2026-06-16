@@ -829,7 +829,7 @@ Section ltl_lemmas.
       Unshelve. done.
   Qed.
 
-  Lemma ltl_always_next_comm (P : tProp) :
+  Lemma ltl_always_next_comm_1 (P : tProp) :
     □ ○ P ⊢ ○ □ P.
   Proof.
     constructor. ltl_unseal. intros tr Halways.
@@ -863,6 +863,46 @@ Section ltl_lemmas.
       all: eauto.
       { constructor. }
       { inversion Hwf. done. }
+  Qed.
+
+  Lemma ltl_always_next_comm_2 (P : tProp) :
+    ○ □ P ⊢ □ ○ P.
+  Proof.
+    constructor. ltl_unseal.
+    intros tr Halways.
+    rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.
+    destruct tr as [[[]|]].
+    { inversion Halways; subst.
+      rewrite bi_intuitionistically_unseal' in H0. rewrite ltl_always_unseal in H0.
+      inversion H0; subst.
+      econstructor; econstructor; done. }
+    {
+      inversion Halways; subst.
+      clear Halways.
+      rewrite bi_intuitionistically_unseal' in H0. rewrite ltl_always_unseal in H0.
+      revert s ℓ r tr_wf0 H1 H0 H5 H3 H7.
+      cofix IH.
+      intros.
+      inversion H0; subst.
+      - econstructor.
+        + econstructor. done.
+        + econstructor; econstructor; done.
+      - econstructor.
+        + econstructor. done.
+        + by eapply IH. }
+    { inversion Halways; subst.
+      rewrite bi_intuitionistically_unseal' in H. rewrite ltl_always_unseal in H.
+      inversion H; subst.
+      econstructor; econstructor; done. }
+    Unshelve. all: eauto.
+  Qed.
+
+  Lemma ltl_always_next_comm (P : tProp) :
+    □ ○ P ⊣⊢ ○ □ P.
+  Proof.
+    iSplit.
+    - iApply ltl_always_next_comm_1.
+    - iApply ltl_always_next_comm_2.
   Qed.
 
   (** LTL Now (TBD) *)
@@ -1047,7 +1087,7 @@ Section ltl_proofmode.
   Proof.
     rewrite /IntoNext. destruct p.
     - simpl. rewrite -ltl_always_next_comm. eauto.
-    - apply ltl_always_next_comm.
+    - apply ltl_always_next_comm_1.
   Qed.
 
   Global Instance into_next_always_id (P : tProp) :
@@ -1534,6 +1574,53 @@ Section ltl_derived_constructs.
       iDestruct "HP" as "#HP".
       iEval (rewrite -ltl_until_idemp).
       by iApply (ltl_until_mono Q Q R'); [eauto| |done].
+  Qed.
+
+  Global Instance from_exist_until {A} P Q (Φ : A → tProp) :
+    FromExist Q Φ → Inhabited A → FromExist (P ∪ Q) (λ a, (Φ a))%I.
+  Proof.
+    rewrite /FromExist=> HP ?. rewrite -ltl_until_intro.
+    rewrite -bi.or_intro_l. done.
+  Qed.
+
+  Lemma ltl_always_eventually_idemp (P : tProp) :
+    (□ ◊ P)%I ≡ (◊ □ ◊ P)%I.
+  Proof.
+    iSplit.
+    { iIntros "H". iEval (rewrite -ltl_eventually_intro_now). done. }
+    iApply ltl_eventually_ind.
+    iIntros "!> [#H|[H IH]]".
+    { iIntros "!>". done. }
+    iEval (rewrite -ltl_next_eventually).
+    rewrite -ltl_always_next_comm. done.
+  Qed.
+
+  Global Instance elim_modal_always_until p (P Q : tProp) :
+    ElimModal True p false modality_persistently (◊ Q) Q (□ ◊ P) (□ ◊ P).
+  Proof.
+    rewrite /ElimModal.
+    iIntros (_) "[HQ #HP]".
+    destruct p; simpl.
+    - iEval (rewrite ltl_always_eventually_idemp).
+      iDestruct "HQ" as "#HQ". iMod "HQ".
+      iEval (rewrite -ltl_eventually_intro_now). by iApply "HP".
+    - iEval (rewrite ltl_always_eventually_idemp).
+      iMod "HQ". iEval (rewrite -ltl_eventually_intro_now). by iApply "HP".
+  Qed.
+
+  (* TODO: Fiddle with priority order; hangs on priority 0/1 *)
+  Global Instance into_wand_until q R (P Q1 Q2 : tProp) :
+    IntoWand true false R Q1 Q2 →
+    IntoWand true q R (P ∪ Q1) (P ∪ Q2) | 10.
+  Proof.
+    rewrite /IntoWand /= => HR.
+    iIntros "#HR". destruct q.
+    - simpl. iIntros "#H". iApply (ltl_until_mono with "[] [] H").
+      + eauto.
+      + iIntros "!> HQ". by iApply HR.
+    - simpl. iIntros "H". iApply (ltl_until_mono with "[] [] H").
+      + eauto.
+      + iIntros "!>". by iApply HR.
   Qed.
 
 End ltl_derived_constructs.

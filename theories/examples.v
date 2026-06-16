@@ -20,6 +20,10 @@ Section examples.
   Lemma eventually_primer (P Q R : tProp) : ⊢ □ (P → ◊ Q) → ◊ ○ P → ◊ ○ R →  ○ ◊ Q.
   Proof. iIntros "#HPQ HP HR". iMod "HP". iModIntro. iApply "HPQ". done. Qed.
 
+  Lemma eventually_primer' (P Q R : tProp) : ⊢ □ (P → □ ◊ Q) → ◊ P → ◊ R →  □ ◊ Q.
+  Proof.
+    iIntros "#HPQ HP HR". iMod "HP". iApply "HPQ". done. Qed.
+
   Lemma until_primer (P Q R : tProp) :
     ⊢ □ (R → P ∪ Q) → (○ P ∪ ○ R) → ◊ ○ R → ○ (P ∪ Q).
   Proof. iIntros "#HPQ HP HR". iMod "HP". iModIntro. iApply "HPQ". done. Qed.
@@ -264,10 +268,9 @@ Section simple_ex.
     iIntros "H".
     iDestruct (step with "H") as "H".
     iApply ltl_next_eventually. iModIntro.
-    iDestruct ("IH" with "[] [] H") as "H".
+    iApply ("IH" with "[] []"); [| |done].
     { subst. iPureIntro. lia. }
     { iPureIntro. lia. }
-    done.
   Qed.
 
 End simple_ex.
