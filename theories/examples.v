@@ -38,6 +38,34 @@ Section examples.
     iMod "HP". iModIntro. by iApply "HPQ".
   Qed.
 
+  Lemma induction_example (P Q : tProp) :
+    ⊢ □ P → ◊ Q → P ∪ Q.
+  Proof.
+    iIntros "#HP HQ".
+    iApply (ltl_eventually_ind with "[] HQ").
+    iIntros "!> [HQ|[H IH]]".
+    { iModUnIntro. iFrame. }
+    iEval (rewrite ltl_until_unfold).
+    iRight. iFrame "#". iModIntro. done.
+  Qed.
+
+  Lemma induction_example' (P Q R : tProp) :
+    ⊢  □ (P → ○ Q) → □ (Q → ○ P) → ◊ R → P → (P ∨ Q) ∪ R.
+  Proof.
+    iIntros "#HPQ #HQP HR".
+    iIntros "HP".
+    iAssert (P ∨ Q)%I with "[$HP]" as "HP".
+    iRevert "HP".
+    iApply (ltl_eventually_ind with "[] HR").
+    iIntros "!> [HQ|[H IH]] HP".
+    { iModUnIntro. iFrame. }
+    iEval (rewrite ltl_until_unfold).
+    iRight. iSplit; [done|].
+    iDestruct "HP" as "[HP|HQ]".
+    - iDestruct ("HPQ" with "HP") as "HQ". iModIntro. iApply "IH". iRight. done.
+    - iDestruct ("HQP" with "HQ") as "HP". iModIntro. iApply "IH". iLeft. done.
+  Qed.
+
   Lemma running_example (P Q : tProp) : ⊢ □ (P → ○ ◊ Q) → ◊ P → ○ ◊ Q.
   Proof. iIntros "#HPQ HP". iMod "HP". by iApply "HPQ". Qed.
 
@@ -325,7 +353,7 @@ Section advanced_ex.
     ↓s (λ os, os = Some (i,b)) ⊢
     ↓s (λ os, os = Some (i,b)) ∪ ↓s (λ os, os = Some (i+1,negb b)) : tProp state' label' steps'.
   Proof.
-    iDestruct (fair b) as "Hfair".
+    iDestruct (fair b) as "-#Hfair".
     iApply (ltl_eventually_ind with "[] Hfair").
     iIntros "!> [Hl|H]".
     { iIntros "Hs".

@@ -755,6 +755,27 @@ Section ltl_lemmas.
     intros H1. apply H1. done.
   Qed.
 
+  Lemma ltl_next_not (P : tProp) :
+    ¬ ○ P ⊣⊢ ○ ¬ P.
+  Proof.
+    split. intros tr. unseal. ltl_unseal.
+    split.
+    - intros. destruct tr as [[[]|]].
+      + econstructor. intros HP. eapply H. econstructor. done.
+      + econstructor. intros HP. eapply H. econstructor. done.
+      + econstructor. intros HP. eapply H. econstructor. done.
+    - intros. destruct tr as [[[]|]].
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H3. done.
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H3. done.
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H0. done.
+    Unshelve.
+    1: { econstructor. }
+    1: { inversion tr_wf0. done. }
+  Qed.
+
   Lemma impl_intro_l (P Q : tProp) :
     (⊢ P → Q) → (P ⊢ Q).
   Proof. iIntros (HPQ) "HP". by iApply HPQ. Qed.
@@ -795,6 +816,16 @@ Section ltl_lemmas.
     + inversion H0; simplify_eq; [left|right]; by econstructor.
     + inversion H0; simplify_eq; [left|right]; by econstructor.
     + inversion H0; simplify_eq; [left|right]; by econstructor.
+  Qed.
+
+  Lemma ltl_false_next :
+    ○ False ⊢ False : tProp.
+  Proof.
+    split. intros tr. unseal. ltl_unseal.
+    destruct tr as [[[]|]].
+    - intros. inversion H. subst. eauto.
+    - intros. inversion H. subst. eauto.
+    - intros. inversion H. subst. eauto.
   Qed.
 
   (** Misc *)
@@ -1483,6 +1514,25 @@ Section ltl_derived_constructs.
     iEval (rewrite -ltl_eventually_intro_next).
     iModIntro.
     iDestruct "H" as "[_ $]".
+  Qed.
+
+  Lemma ltl_not_eventually_always_not (P : tProp) :
+    (¬ ◊ P)%I ⊢ □ ¬ P.
+  Proof.
+    iIntros "H".
+    iAssert (□ ((¬ ◊ P) ∧ (¬ P)))%I with "[H]" as "#[H1 H2]"; last first.
+    { iApply ltl_always_intro; last first.
+      { done. }
+      iIntros "!> H !>". iFrame "#". }
+    iApply ltl_always_intro; last first.
+    { iSplit.
+      - done.
+      - iIntros "HP". iApply "H". rewrite -ltl_eventually_intro_now. done. }
+    iIntros "!> [H1 H2]".
+    rewrite -ltl_next_and.
+    iSplit.
+    - rewrite -ltl_next_not. iIntros "H". iApply "H1". rewrite ltl_next_eventually. done.
+    - rewrite -ltl_next_not. iIntros "H". iApply "H1". rewrite -ltl_next_eventually. iModIntro. rewrite -ltl_eventually_intro_now. done.
   Qed.
 
   Global Instance into_and_eventually (P Q1 Q2 : tProp) :
