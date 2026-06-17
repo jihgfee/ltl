@@ -19,4 +19,6 @@
 -arg -w -arg -masking-absolute-name
 
 theories/ltl.v
+theories/classical.v
 theories/examples.v
+theories/stenning_example_ex.v
