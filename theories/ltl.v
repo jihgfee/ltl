@@ -734,6 +734,20 @@ Section ltl_lemmas.
     rewrite left_id. done.
   Qed.
 
+  Lemma impl_intro_l (P Q : tProp) :
+    (⊢ P → Q) → (P ⊢ Q).
+  Proof. iIntros (HPQ) "HP". by iApply HPQ. Qed.
+  Lemma impl_intro_r (P Q : tProp) :
+    (P ⊢ Q) → (⊢ P → Q).
+  Proof. iIntros (HPQ) "HP". by rewrite HPQ. Qed.
+
+  Lemma bi_sep_and (P Q : tProp) :
+    P ∗ Q ⊣⊢ P ∧ Q.
+  Proof. constructor. intros tr. unseal. done. Qed.
+  Lemma bi_wand_impl (P Q : tProp) :
+    (P -∗ Q) ⊣⊢ (P → Q).
+  Proof. constructor. intros tr. unseal. done. Qed.
+
   (** AXIOMS *)
 
   (** ltl_not lemmas *)
@@ -754,35 +768,6 @@ Section ltl_lemmas.
     unseal.
     intros H1. apply H1. done.
   Qed.
-
-  Lemma ltl_next_not (P : tProp) :
-    ¬ ○ P ⊣⊢ ○ ¬ P.
-  Proof.
-    split. intros tr. unseal. ltl_unseal.
-    split.
-    - intros. destruct tr as [[[]|]].
-      + econstructor. intros HP. eapply H. econstructor. done.
-      + econstructor. intros HP. eapply H. econstructor. done.
-      + econstructor. intros HP. eapply H. econstructor. done.
-    - intros. destruct tr as [[[]|]].
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H3. done.
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H3. done.
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H0. done.
-    Unshelve.
-    1: { econstructor. }
-    1: { inversion tr_wf0. done. }
-  Qed.
-
-  Lemma impl_intro_l (P Q : tProp) :
-    (⊢ P → Q) → (P ⊢ Q).
-  Proof. iIntros (HPQ) "HP". by iApply HPQ. Qed.
-
-  Lemma impl_intro_r (P Q : tProp) :
-    (P ⊢ Q) → (⊢ P → Q).
-  Proof. iIntros (HPQ) "HP". by rewrite HPQ. Qed.
 
   (** ltl_next lemmas *)
 
@@ -828,12 +813,31 @@ Section ltl_lemmas.
     - intros. inversion H. subst. eauto.
   Qed.
 
-  (** Misc *)
+  Lemma ltl_next_not (P : tProp) :
+    ¬ ○ P ⊣⊢ ○ ¬ P.
+  Proof.
+    split. intros tr. unseal. ltl_unseal.
+    split.
+    - intros. destruct tr as [[[]|]].
+      + econstructor. intros HP. eapply H. econstructor. done.
+      + econstructor. intros HP. eapply H. econstructor. done.
+      + econstructor. intros HP. eapply H. econstructor. done.
+    - intros. destruct tr as [[[]|]].
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H3. done.
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H3. done.
+      + intros HP. inversion H; subst. inversion HP; subst.
+        eapply H0. done.
+    Unshelve.
+    1: { econstructor. }
+    1: { inversion tr_wf0. done. }
+  Qed.
 
   (** ltl_always lemmas *)
 
   Lemma ltl_always_intro (P : tProp) :
-    □ (P → ○ P) ⊢ P → □P.
+    □ (P → ○ P) ⊢ P → □ P.
   Proof.
     rewrite !bi_intuitionistically_unseal.
     constructor. ltl_unseal. unseal.
@@ -936,7 +940,15 @@ Section ltl_lemmas.
     - iApply ltl_always_next_comm_2.
   Qed.
 
-  (** LTL Now (TBD) *)
+  (** LTL Now *)
+
+  Lemma ltl_now_mono P Q :
+    (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):tProp.
+  Proof.
+    intros HPQ.
+    ltl_unseal. constructor.
+    intros [[[]|]]; inversion 1; try constructor; by apply HPQ.
+  Qed.
 
   Lemma ltl_now_false (P Q : option (S* option L) → Prop) :
     (∀ osl, P osl → Q osl → False) → (↓ P:tProp) -∗ ↓ Q -∗ False.
@@ -952,15 +964,7 @@ Section ltl_lemmas.
          - by inversion HQ.
   Qed.
 
-  Lemma ltl_now_mono P Q :
-    (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):tProp.
-  Proof.
-    intros HPQ.
-    ltl_unseal. constructor.
-    intros [[[]|]]; inversion 1; try constructor; by apply HPQ.
-  Qed.
-
-  (** LTL Exists (TBD) *)
+  (** LTL Exists *)
 
   Lemma ltl_next_exists {A} (P : A → tProp) :
     (○ ∃ x, P x)%I ⊢ ∃ x, ○ P x.
@@ -971,15 +975,6 @@ Section ltl_lemmas.
     - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
     - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
   Qed.
-
-  (* Proofmode stuff *)
-
-  Lemma bi_sep_and (P Q : tProp) :
-    P ∗ Q ⊣⊢ P ∧ Q.
-  Proof. constructor. intros tr. unseal. done. Qed.
-  Lemma bi_wand_impl (P Q : tProp) :
-    (P -∗ Q) ⊣⊢ (P → Q).
-  Proof. constructor. intros tr. unseal. done. Qed.
 
 End ltl_lemmas.
 
@@ -1317,8 +1312,6 @@ Section ltl_derived_constructs.
       done.
   Qed.
 
-  (* Derived *)
-
   Lemma ltl_until_idemp (P Q : tProp) :
     (P ∪ (P ∪ Q)) ⊣⊢ (P ∪ Q).
   Proof.
@@ -1410,7 +1403,8 @@ Section ltl_derived_constructs.
   Qed.
 
   Global Instance ltl_until_combine (P1 P2 Q1 Q2 : tProp) :
-    CombineSepAs (P1 ∪ Q1) (P2 ∪ Q2) (((P1 ∧ P2) ∪ (Q1 ∧ (P2 ∪ Q2))) ∨ ((P1 ∧ P2) ∪ (P1 ∪ Q1 ∧ Q2))) | 1.
+    CombineSepAs (P1 ∪ Q1) (P2 ∪ Q2)
+      (((P1 ∧ P2) ∪ (Q1 ∧ (P2 ∪ Q2))) ∨ ((P1 ∧ P2) ∪ (P1 ∪ Q1 ∧ Q2))) | 1.
   Proof. rewrite /CombineSepAs. apply ltl_until_and_r. Qed.
 
   Lemma ltl_eventually_intro (P : tProp) :

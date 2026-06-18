@@ -21,8 +21,7 @@ Section examples.
   Proof. iIntros "#HPQ HP HR". iMod "HP". iModIntro. iApply "HPQ". done. Qed.
 
   Lemma eventually_primer' (P Q R : tProp) : ⊢ □ (P → □ ◊ Q) → ◊ P → ◊ R →  □ ◊ Q.
-  Proof.
-    iIntros "#HPQ HP HR". iMod "HP". iApply "HPQ". done. Qed.
+  Proof. iIntros "#HPQ HP HR". iMod "HP". iApply "HPQ". done. Qed.
 
   Lemma until_primer (P Q R : tProp) :
     ⊢ □ (R → P ∪ Q) → (○ P ∪ ○ R) → ◊ ○ R → ○ (P ∪ Q).
@@ -52,8 +51,7 @@ Section examples.
   Lemma induction_example' (P Q R : tProp) :
     ⊢  □ (P → ○ Q) → □ (Q → ○ P) → ◊ R → P → (P ∨ Q) ∪ R.
   Proof.
-    iIntros "#HPQ #HQP HR".
-    iIntros "HP".
+    iIntros "#HPQ #HQP HR HP".
     iAssert (P ∨ Q)%I with "[$HP]" as "HP".
     iRevert "HP".
     iApply (ltl_eventually_ind with "[] HR").
