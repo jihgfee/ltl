@@ -210,7 +210,14 @@ Section stenning_ex.
   Lemma ltl_now_agree x y :
     ⊢ ↓sA x → ↓sA y → ⌜x = y⌝.
   Proof. Admitted.
-    
+
+  Lemma ltl_now_B_agree x y :
+    ⊢ ↓sB x → ↓sB y → ⌜x = y⌝.
+  Proof. Admitted.
+
+  Lemma ltl_now_lbl_agree (x y : stenning_label) :
+    ⊢ ↓l x → ↓l y → ⌜x = y⌝ : tProp.
+  Proof. Admitted.    
 
   Lemma stenning_A_send i :
     ↓sA ((ASending, i)) ⊢ ◊ (↓sA ((ASending, i)) ∧ ↓l (saA, Send (mAB i))) : tProp.
@@ -342,7 +349,7 @@ Section stenning_ex.
   Qed.
 
   Axiom stenning_safety_inv :
-    ⊢ ∃ i stA stB, ↓sA (stA,i) ∧ (↓sB (stB,i) ∨ ↓sB (stB,i-1)).
+    ⊢ ∃ i stA stB, ↓sA (stA,S i) ∧ (↓sB (stB,S i) ∨ ↓sB (stB,i)).
 
   Lemma stenning_B : ⊢ ∃ stB, ↓sB stB : tProp.
   Proof. Admitted.
@@ -395,13 +402,147 @@ Section stenning_ex.
     iDestruct (ltl_now_agree with "Hst' HstA") as %Heq.
     simplify_eq. iClear "Hst' HstA".
     iDestruct "HstB" as "[Hs|Hs]".
-    - admit.
-    - admit.
-  Admitted.
+    - 
+      iDestruct (ltl_until_foo with "Hrecv") as "Hrecv'".
+      rewrite left_id.
+      iRevert "Hs". iRevert (stB).
+      iApply (ltl_until_ind with "[] Hrecv'").
+      iIntros "!> [Hl|(Hl&H&IH)]"; iIntros (stB) "Hs".
+      { destruct stB.
+        { iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
+          iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
+          iModUnIntro. done. }
+        iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+        iDestruct (stenning_BReceiving_B with "[$Hs Hl]") as "H".
+        { by iApply stenning_baz. }
+        iDestruct "H" as (m) "[H|[H|H]]".
+        + iDestruct "H" as (->) "[Hl Hs]".
+          iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
+          simplify_eq.
+        + iDestruct "H" as (m' ->) "[%Heq [Hl Hs]]".
+          iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'.
+          simplify_eq.
+          iEval (rewrite -ltl_next_eventually). iModIntro.
+          iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
+          iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
+          iModUnIntro. done.          
+        + iDestruct "H" as (->) "[Hl Hs]".
+          iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'.
+          simplify_eq. lia. }
+      destruct stB.
+      + iDestruct stenning_A_or_B as "[HA|HB]".
+        * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+        * iDestruct (stenning_BSending_B with "[$Hs $HB]") as "[Hl' Hs]".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+      + iDestruct stenning_A_or_B as "[HA|HB]".
+        * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+        * iDestruct (stenning_BReceiving_B with "[$Hs $HB]") as (m) "[Hs|[Hs|Hs]]".
+          -- iDestruct "Hs" as "(?&?&Hs)". 
+             iEval (rewrite -ltl_next_eventually).
+             iModIntro.
+             by iApply "IH".
+          -- iDestruct "Hs" as (m') "(?&?&?&Hs)". 
+             iEval (rewrite -ltl_next_eventually).
+             iModIntro.
+             by iApply "IH".
+          -- iDestruct "Hs" as (->) "(?&Hs)".
+             iEval (rewrite -ltl_next_eventually).
+             iModIntro.
+             iDestruct "Hst" as (?) "Hst".
+             iDestruct (stenning_safety_inv) as (i stA'' stB') "[HstA HstB]".
+             iDestruct "HstB" as "[H1|H2]".
+             ++ iDestruct (ltl_now_agree with "Hst HstA") as %Heq.
+                simplify_eq.
+                iDestruct (ltl_now_B_agree with "Hs H1") as %Heq.
+                simplify_eq.
+                lia.
+             ++ iDestruct (ltl_now_agree with "Hst HstA") as %Heq.
+                simplify_eq.
+                iDestruct (ltl_now_B_agree with "Hs H2") as %Heq.
+                simplify_eq.
+                lia.
+    - iDestruct (ltl_until_foo with "Hrecv") as "Hrecv'".
+      rewrite left_id.
+      iRevert "Hs". iRevert (stB).
+      iApply (ltl_until_ind with "[] Hrecv'").
+      iIntros "!> [Hl|(Hl&H&IH)]"; iIntros (stB) "Hs".
+      { destruct stB.
+        - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
+          iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+          iDestruct (stenning_BSending_B with "[$Hs Hl]") as "[Hl Hs]".
+          { by iApply stenning_baz. }
+          iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
+          simplify_eq.
+        - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
+          iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+          iDestruct (stenning_BReceiving_B with "[$Hs Hl]") as "H".
+          { by iApply stenning_baz. }
+          iDestruct "H" as (m) "[H|[H|H]]".
+          + iDestruct "H" as (->) "[Hl Hs]".
+            iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
+            simplify_eq.
+          + iDestruct "H" as (m' ->) "[%Heq [Hl Hs]]".
+            iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'.
+            simplify_eq.
+          + iDestruct "H" as (->) "[Hl Hs]".
+            iEval (rewrite -ltl_next_eventually). iModIntro.
+            iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
+            iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
+            iModUnIntro. done. }
+      destruct stB.
+      + iDestruct stenning_A_or_B as "[HA|HB]".
+        * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+        * iDestruct (stenning_BSending_B with "[$Hs $HB]") as "[Hl' Hs]".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+      + iDestruct stenning_A_or_B as "[HA|HB]".
+        * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
+          iEval (rewrite -ltl_next_eventually).
+          iModIntro.
+          by iApply "IH".
+        * iDestruct (stenning_BReceiving_B with "[$Hs $HB]") as (m) "[Hs|[Hs|Hs]]".
+          -- iDestruct "Hs" as "(?&?&Hs)". 
+             iEval (rewrite -ltl_next_eventually).
+             iModIntro.
+             by iApply "IH".
+          -- iDestruct "Hs" as (m') "(?&?&?&Hs)". 
+             iEval (rewrite -ltl_next_eventually).
+             iModIntro.
+             by iApply "IH".
+          -- iDestruct "Hs" as(->)  "(?&Hs)".
+             rewrite /saB. iExFalso. iApply "Hl". done. 
+  Qed.
 
-  Lemma stenning_A_foo stA i : 
-    ⊢ □ ¬ ↓sA (stA, S i) → ↓sA (stA, i) →  □ ∃ stA', ↓sA (stA', i).
-  Proof. Admitted.
+  Lemma stenning_A_foo i :
+    ⊢ □ (¬ ↓sA (ASending, S i)) → ↓sA (ASending, i) →  □ ∃ stA', ↓sA (stA', i).
+  Proof.
+    iIntros "#Hm Hs".
+    iApply ltl_always_intro; last first.
+    { iExists _. done. }
+    iIntros "!> [%stA' Hs]".
+    iDestruct stenning_A_or_B as "[HA|HB]"; last first.
+    { iDestruct (stenning_A_B with "[$Hs $HB]") as "H".
+      iModIntro. iExists _. iFrame. }
+    destruct stA'.
+    - iDestruct (stenning_ASending_A with "[$Hs $HA]") as "[Hl Hs]".
+      iModIntro. iExists _. done.
+    - iDestruct (stenning_AReceiving_A with "[$Hs $HA]") as (m) "[H|H]".
+      + iDestruct "H" as "(?&?&?)". iModIntro. iFrame.
+      + iDestruct "H" as "(?&?&?)".
+        iModIntro. iExFalso. iApply "Hm". done. 
+  Qed.
   
   Lemma stenning_A_advances i :
     ↓sA ((ASending, i)) ⊢ ◊ ↓sA ((ASending, S i)) : tProp.
