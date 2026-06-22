@@ -1,4 +1,4 @@
-From ltl Require Import ltl classical.
+From ltl Require Import ltl classical examples.
 
 Section foo.
   Context {S L : Type}.
@@ -27,28 +27,45 @@ Notation "↓s st" := (ltl_now_state st) (at level 20, right associativity) : bi
 
 Notation "↓l lbl" := (ltl_now_label lbl)%I (at level 20, right associativity) : bi_scope.
 
-(* Notation "↓s st" := (↓ (λ osl, (match osl with *)
-(*                               | Some (s,_) => s = st *)
-(*                               | _ => False *)
-(*                               end):Prop))%I (at level 20, right associativity) : bi_scope.  *)
-
-(* Notation "↓l lbl" := (↓ (λ osl, (match osl with *)
-(*                               | Some (s,Some l) => l = lbl *)
-(*                               | _ => False *)
-(*                               end):Prop))%I (at level 20, right associativity) : bi_scope.  *)
-
-(* Notation "↓s Φ" := (↓ (λ osl, (match osl with *)
-(*                               | Some (s,l) => Φ (Some s) *)
-(*                               | None => Φ None *)
-(*                               end):Prop))%I (at level 20, right associativity) : bi_scope.  *)
-
-(* Notation "↓l Φ" := (↓ (λ osl, (match osl with *)
-(*                               | Some (s,Some l) => Φ (Some l) *)
-(*                               | Some (s,None) => Φ None *)
-(*                               | None => Φ None *)
-(*                               end):Prop))%I (at level 20, right associativity) : bi_scope.  *)
-
 Import tProp.
+
+Lemma trace_steps {S L Rel} `{HRel: LTL S L Rel} s l :
+  reducible s →
+  ↓s s ∧ ↓l l ⊢ ∃ (s':S), ⌜Rel s l s'⌝ ∧ ○ ↓s s' : tProp S L Rel.
+Proof. Admitted.
+(*   intros (s'&Hsteps). *)
+(*   constructor. *)
+(*   intros [[tr|] tr_wf]; last first. *)
+(*   { rewrite /ltl_now_state. unseal. rewrite ltl_now_unseal. *)
+(*     intros Hnow. inversion Hnow. simplify_eq. eexists _. *)
+(*     admit. *)
+(*     } *)
+(*   unseal. rewrite /ltl_now_state. rewrite ltl_now_unseal. *)
+(*   intros Hnow. inversion Hnow; simplify_eq. *)
+(*   { exfalso. apply empty_ind. inversion tr_wf. subst. specialize (H0 l s'). done. } *)
+(*   clear Hsteps. *)
+(*   assert (∃ c', head_trace (Some tr0) = Some c' ∧ Rel s l0 c') as Hwf. *)
+(*   { destruct tr0. *)
+(*     { exists s0. split; [done|]. *)
+(*       destruct (decide (Rel s l0 s0)); [done|]. *)
+(*       exfalso. apply empty_ind. inversion tr_wf. simplify_eq. *)
+(*       simpl in *. simplify_eq. done. } *)
+(*     exists s0. split; [done|]. *)
+(*     destruct (decide (Rel s l0 s0)); [done|]. *)
+(*     exfalso. apply empty_ind. inversion tr_wf. simplify_eq. *)
+(*     simpl in *. simplify_eq. done. } *)
+(*   destruct Hwf as (s''&Hhead&Hrel). *)
+(*   destruct tr0; simpl in *; simplify_eq. *)
+(*   - eexists l0, s''. econstructor; [done|]. *)
+(*     econstructor. *)
+(*     + econstructor. done. *)
+(*     + rewrite ltl_next_unseal. econstructor. econstructor. done. *)
+(*   - eexists l0, s''. econstructor; [done|]. *)
+(*     econstructor. *)
+(*     + econstructor. done. *)
+(*     + rewrite ltl_next_unseal. econstructor. econstructor. done. *)
+(*       Unshelve. all: by inversion tr_wf. *)
+(* Qed. *)
 
 Section stenning_ex.
 
@@ -90,7 +107,7 @@ Section stenning_ex.
     omsg = Some $ mBA n →
     stenning_trans ((AReceiving, n), stB)
       (Arole, Recv saA omsg)
-      ((ASending, (1+n)), stB)
+      ((ASending, (S n)), stB)
   | B_Send stA n :
     stenning_trans (stA, (BSending, n))
       (Brole, Send (mBA (n)))
@@ -102,41 +119,35 @@ Section stenning_ex.
       (stA, (BReceiving, n))
   | B_RecvFail stA n m omsg:
     omsg = Some $ m →
-    m ≠ mAB n →
+    m ≠ mAB (S n) →
     stenning_trans (stA, (BReceiving, n))
       (Brole, Recv saB omsg)
       (stA, (BSending, n))
   | B_RecvSucc stA n omsg :
-    omsg = Some $ mAB (1+n) →
+    omsg = Some $ mAB (S n) →
     stenning_trans (stA, (BReceiving, n))
       (Brole, Recv saB omsg)
-      (stA, (BSending, (1+n)))
+      (stA, (BSending, (S n)))
   .
 
   Notation tProp := (tProp stenning_state stenning_label stenning_trans).
 
+  Instance stenning_state_inhabited : Inhabited stenning_state := populate ((ASending, 0), (BSending, 0)).
+
   Definition ltl_now_state_A st : tProp :=
-    (↓ (λ osl, (match osl with
-                              | Some (s,_) => s.1 = st
-                              | _ => False
-                              end):Prop))%I.
+    ∃ sB, ↓s (st,sB).
   Notation "↓sA st" := (ltl_now_state_A st) (at level 20, right associativity) : bi_scope.
 
-
   Definition ltl_now_state_B st : tProp :=
-    (↓ (λ osl, (match osl with
-                              | Some (s,_) => s.2 = st
-                              | _ => False
-                              end):Prop))%I.
+    ∃ sA, ↓s (sA,st).
   Notation "↓sB st" := (ltl_now_state_B st) (at level 20, right associativity) : bi_scope.
 
   Definition ltl_now_label_label lbl : tProp :=
-    (↓ (λ osl, (match osl with
-                              | Some (_,l) => option_map fst l = Some lbl
-                              | _ => False
-                              end):Prop))%I.
-  Notation "↓sA st" := (ltl_now_state_A st) (at level 20, right associativity) : bi_scope.
+    (∃ a, ↓l (lbl,a)).
   Notation "↓ll lbl" := (ltl_now_label_label lbl) (at level 20, right associativity) : bi_scope.
+
+  Instance stenning_ltl : LTL stenning_state stenning_label stenning_trans.
+  Proof. Admitted.
 
   Axiom fair_sched :
     ∀ (b:actor), ⊢ (◊ ↓ll b):tProp.
@@ -152,28 +163,63 @@ Section stenning_ex.
     ◊ (∃ (m:nat), ⌜Φ m⌝ ∧ ↓l (saB, Recv saB (Some (saA, m, saB))))
     : tProp.
 
-
-  (* Needs that state is correct one *)
-  Lemma stenning_2 i :
-    ↓l (saA, Recv saA (Some $ mBA i))
-    ⊢ ○ ↓sA (ASending, S i)
-    : tProp.
-  Proof. Admitted.
-
   Lemma stenning_ASending_A i :
     ↓sA (ASending,i) ∧ ↓ll A ⊢ ↓l (A, Send (mAB i)) ∧ ○ ↓sA (AReceiving,i) : tProp.
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs HA]".
+    iDestruct "Hs" as (stB) "Hs". 
+    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_dup with "HA") as "[HA HA']".
+    iDestruct (trace_steps with "[Hs HA]") as  (s' Hsteps') "Hs'".
+    { eexists _,_. econstructor. }
+    { iFrame. }
+    inversion Hsteps'; simplify_eq.
+    iFrame. iModIntro.
+    iExists _. done.
+  Qed.
 
   Lemma stenning_AReceiving_A i :
     ↓sA (AReceiving,i) ∧ ↓ll A ⊢
     ∃ omsg, 
       (⌜omsg ≠ Some $ mBA i⌝ ∧ ↓l (A,Recv saA omsg) ∧ ○ ↓sA (ASending, i)) ∨
       (⌜omsg = Some $ mBA i⌝ ∧ ↓l (A,Recv saA omsg) ∧ ○ ↓sA (ASending, S i)).
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs HA]".
+    iDestruct "Hs" as (stB) "Hs". 
+    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_dup with "HA") as "[HA HA']".
+    iDestruct (trace_steps with "[$Hs $HA]") as  (s' Hsteps') "Hs'".
+    { eexists (_,Recv _ None),_. econstructor. eauto. }
+    inversion Hsteps'; simplify_eq.
+    - iExists omsg. iLeft. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+    - iExists (Some (mBA i)). iRight. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+  Qed.
+
+  Lemma stenning_reducible s :
+    reducible s.
+  Proof.
+    destruct s as [[[] i] [[] j]].
+    - eexists _, _. econstructor.
+    - eexists _, _. econstructor.
+    - eexists (_,Recv _ None),_. econstructor. eauto.
+    - eexists (_,Recv _ None),_. econstructor. eauto.
+  Qed.
 
   Lemma stenning_A_B stA :
     ↓sA stA ∧ ↓ll B ⊢ ○ ↓sA stA.
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs HA]".
+    iDestruct "Hs" as (stB) "Hs". 
+    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_dup with "HA") as "[HA HA']".
+    iDestruct (trace_steps with "[$Hs $HA]") as  (s' Hsteps') "Hs'".
+    { apply stenning_reducible. }
+    inversion Hsteps'; simplify_eq.
+    - iModIntro. iExists _. iFrame.
+    - iModIntro. iExists _. iFrame.
+    - iModIntro. iExists _. iFrame.
+    - iModIntro. iExists _. iFrame.
+  Qed.
 
   Lemma stenning_BReceiving_B i :
     ↓sB (BReceiving,i) ∧ ↓ll B ⊢
@@ -181,31 +227,63 @@ Section stenning_ex.
       (⌜omsg = None⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BReceiving, i)) ∨
       (∃ m, ⌜omsg = Some m⌝ ∧ ⌜m ≠ mAB (S i)⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BSending, i)) ∨
       (⌜omsg = Some $ mAB (S i)⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BSending, S i)).
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct "Hs" as (stA) "Hs". 
+    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+    iDestruct (trace_steps with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
+    { apply stenning_reducible. }
+    inversion Hsteps'; simplify_eq.
+    - iExists None. iLeft. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+    - iExists _. iRight. iLeft. iExists _. iFrame. iSplit; [eauto|]. iSplit; [eauto|].
+      iModIntro. iExists _. iFrame.
+    - iExists _. iRight. iRight. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+  Qed.
 
   Lemma stenning_BSending_B i :
     ↓sB (BSending,i) ∧ ↓ll B ⊢ ↓l (B, Send (mBA i)) ∧ ○ ↓sB (BReceiving,i) : tProp.
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct "Hs" as (stA) "Hs". 
+    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+    iDestruct (trace_steps with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
+    { apply stenning_reducible. }
+    inversion Hsteps'; simplify_eq.
+    iFrame. iModIntro. iExists _. iFrame.
+  Qed.    
 
   Lemma stenning_B_A stB :
     ↓sB stB ∧ ↓ll A ⊢ ○ ↓sB stB.
-  Proof. Admitted.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct "Hs" as (stA) "Hs". 
+    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+    iDestruct (trace_steps with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
+    { apply stenning_reducible. }
+    inversion Hsteps'; simplify_eq.
+    - iModIntro. iExists _. iFrame.
+    - iModIntro. iExists _. iFrame.
+    - iModIntro. iExists _. iFrame.
+  Qed.
 
   Lemma stenning_A_or_B :
     ⊢ ↓ll A ∨ ↓ll B.
-  Proof. Admitted.
+  Proof. Admitted.    
 
+  (* TODO: Remove *)
   Lemma stenning_baz a b :
     ↓l (a,b) ⊢ ↓ll a.
-  Proof. Admitted.
+  Proof. iIntros "H". iExists _. iFrame. Qed.
 
   Lemma ltl_dup (P : tProp) : P ⊢ P ∧ P.
   Proof. iIntros "H". iFrame. Qed.
 
   Lemma stenning_split stA stB :
     ↓s (stA, stB) ⊢ ↓sA stA ∧ ↓sB stB.
-  Proof. Admitted.
-
+  Proof. iIntros "H". iSplit; iFrame. Qed.
 
   Lemma ltl_now_agree x y :
     ⊢ ↓sA x → ↓sA y → ⌜x = y⌝.
@@ -217,7 +295,25 @@ Section stenning_ex.
 
   Lemma ltl_now_lbl_agree (x y : stenning_label) :
     ⊢ ↓l x → ↓l y → ⌜x = y⌝ : tProp.
-  Proof. Admitted.    
+  Proof. Admitted.
+
+  (* OBS: Does not hold, as trace might be terminated *)
+  Lemma ltl_st : ⊢ ∃ s, ↓s s : tProp.
+  Proof.
+    econstructor. intros. unseal. rewrite /ltl_now_state. rewrite ltl_now_unseal.
+    destruct tr. destruct tr_car.
+    - destruct t; exists s; eauto.
+      + econstructor. done.
+      + econstructor. done.
+    - eexists _. econstructor. apply empty_ind. destruct tr_wf; eauto.
+      admit.
+  Admitted. 
+
+  Lemma stenning_A : ⊢ ∃ stA, ↓sA stA : tProp.
+  Proof. iDestruct ltl_st as ([]) "Hs". iExists _, _. iFrame. Qed.
+
+  Lemma stenning_B : ⊢ ∃ stB, ↓sB stB : tProp.
+  Proof. iDestruct ltl_st as ([]) "Hs". iExists _, _. iFrame. Qed.
 
   Lemma stenning_A_send i :
     ↓sA ((ASending, i)) ⊢ ◊ (↓sA ((ASending, i)) ∧ ↓l (saA, Send (mAB i))) : tProp.
@@ -270,6 +366,61 @@ Section stenning_ex.
     iEval (rewrite -ltl_next_eventually). iModIntro.
     by iApply "IH".
   Qed.
+
+  Lemma stenning_2_succ i :
+    ↓sA (AReceiving, i) ∧
+    ↓l (saA, Recv saA (Some $ mBA i))
+    ⊢ ○ ↓sA (ASending, S i)
+    : tProp.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+    iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m) "[H|H]".
+    { iDestruct "H" as (Heq) "[Hl Hs]".
+      iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'. simplify_eq. }
+    iDestruct "H" as (->) "[Hl Hs]".
+    iFrame.
+  Qed.
+
+  Lemma stenning_A_eventually_advance i :
+    ↓sA (ASending, i) ∧
+    ◊ ↓l (saA, Recv saA (Some $ mBA i))
+    ⊢ ◊ ↓sA (ASending, S i)
+    : tProp.
+  Proof.
+    assert (∃ stA, ASending = stA) as [stA Heq].
+    { eauto. }
+    rewrite {1}Heq. clear Heq.
+    iIntros "[Hs Hl]". iRevert (stA) "Hs".
+    iApply (ltl_eventually_ind with "[] Hl").
+    iIntros "!> [Hl|H]"; iIntros (stA) "Hs".
+    { destruct stA.
+      - rewrite -ltl_eventually_next.
+        iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
+        iDestruct (stenning_ASending_A with "[$Hs $Hl]") as "[Hl Hs]".
+        iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'. simplify_eq.
+      - rewrite -ltl_next_eventually. iDestruct (stenning_2_succ with "[$Hl $Hs]") as "Hs".
+        iModIntro. iMod (stenning_disjoint_A with "Hs") as "[Hs Hl]".
+        iModUnIntro. iFrame. }
+    iDestruct "H" as "[H' IH]".
+    iDestruct stenning_A_or_B as "[HA|HB]"; last first.
+    { iDestruct (stenning_A_B with "[$Hs $HB]") as "Hs".
+      iEval (rewrite -ltl_next_eventually).
+      iModIntro. by iApply "IH". }
+    destruct stA.
+    - iDestruct (stenning_ASending_A with "[$Hs $HA]") as "[Hl Hs]".
+      iEval (rewrite -ltl_next_eventually).
+      iModIntro.
+      by iApply "IH".
+    - iDestruct (stenning_AReceiving_A with "[$Hs $HA]")
+        as (m) "[[%Hm [Hl Hs]]|[%Hm [Hl Hs]]]".
+      + iEval (rewrite -ltl_next_eventually).
+        iModIntro.
+        iDestruct ("IH" with "Hs") as ">Hs".
+        iModUnIntro. done.
+      + iEval (rewrite -ltl_next_eventually).
+        iModIntro. iModUnIntro. done.
+  Qed. 
 
   Lemma stenning_A_always_send i :
     (□ ¬ ↓sA (ASending, S i)) ∧ 
@@ -351,9 +502,6 @@ Section stenning_ex.
   Axiom stenning_safety_inv :
     ⊢ ∃ i stA stB, ↓sA (stA,S i) ∧ (↓sB (stB,S i) ∨ ↓sB (stB,i)).
 
-  Lemma stenning_B : ⊢ ∃ stB, ↓sB stB : tProp.
-  Proof. Admitted.
-  
   Lemma stenning_B_always_try_recv :
     ⊢ □ ◊ ∃ m, ↓l (saB, Recv saB m) : tProp.
   Proof.
@@ -543,7 +691,7 @@ Section stenning_ex.
       + iDestruct "H" as "(?&?&?)".
         iModIntro. iExFalso. iApply "Hm". done. 
   Qed.
-  
+
   Lemma stenning_A_advances i :
     ↓sA ((ASending, i)) ⊢ ◊ ↓sA ((ASending, S i)) : tProp.
   Proof.
@@ -552,11 +700,12 @@ Section stenning_ex.
     { iDestruct (ltl_excluded_middle (◊ ↓sA (ASending, S i))) as "[H|H]".
       { by iLeft. }
       iRight. by iApply ltl_not_eventually_always_not. }
-    iApply ltl_eventually_next.
-    iApply stenning_2.
     iDestruct (ltl_dup with "HA") as "[HA1 HA2]".
-    iDestruct (fair_net _ (λ m, m = i) with "[HA1] [HA2]") as "Hfair"; last first.
-    { iMod "Hfair" as (m ->) "Hfair". by iModUnIntro. }
+    iDestruct (ltl_dup with "HA2") as "[HA2 HA3]".
+    iDestruct (fair_net _ (λ m, m = i) A with "[HA1] [HA2]") as "Hfair"; last first.
+    { 
+      iApply (stenning_A_eventually_advance with "[$HA3 Hfair]").
+      iMod "Hfair". iModUnIntro. iDestruct "Hfair" as (m ->) "Hfair". done. }
     { iDestruct (stenning_A_always_try_recv with "[$Hm $HA2]") as "#H".
       iIntros "!>". iMod "H" as (m) "[_ H]". iModUnIntro. eauto. }
     { iDestruct (stenning_A_always_send with "[$Hm $HA1]") as "#H".
