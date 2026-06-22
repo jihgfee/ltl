@@ -35,7 +35,7 @@ Section classical.
     unseal. done.
   Qed.
     
-  Lemma ltl_until_foo (P Q : tProp) :
+  Lemma ltl_until_not_until (P Q : tProp) :
     P ∪ Q ⊢ (P ∧ ¬ Q) ∪ Q.
   Proof.
     iDestruct (ltl_excluded_middle Q) as "[HQ|HQ]".
