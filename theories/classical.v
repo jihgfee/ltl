@@ -3,6 +3,21 @@ From Stdlib.Logic Require Import ClassicalFacts.
 
 Axiom excluded_middle : ∀ P, P ∨ ¬ P.
 
+Axiom choice :
+  ∀ A B (R : A → B → Prop), (∀ x, ∃ y, R x y) → {f : A → B | ∀ x, R x (f x)}.
+
+Definition epsilon {A : Type} {P : A → Prop} (Hex : ∃ x, P x) : A :=
+  proj1_sig (choice unit A (λ _ x, P x) (λ _, Hex)) tt.
+
+Lemma make_decision P : Decision P.
+Proof.
+  assert (∃ x : Decision P, True) as Hdecex.
+  { destruct (excluded_middle P) as [HP|HnP].
+    - exists (left HP); done.
+    - exists (right HnP); done. }
+  apply epsilon in Hdecex; done.
+Qed.
+
 Section classical.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
