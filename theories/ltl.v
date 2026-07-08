@@ -673,17 +673,6 @@ Section ltl_primitives.
   Notation tProp := (tProp S L Rel).
 
   (* LTL Operators *)
-  (* Primitive operators *)
-  Inductive ltl_now_def (P : option (S * option L) → Prop) : tProp :=
-  | ltl_now_empty H : P None → ltl_now_def P (⟨⟩ @ H)
-  | ltl_now_single s H : P (Some (s, None)) → ltl_now_def P (⟨s⟩ @ H)
-  | ltl_now_cons s l tr H : P (Some (s,Some l)) → ltl_now_def P ((s -[ l ]-> tr) @ H).
-  Definition ltl_now_aux : seal (@ltl_now_def).
-  Proof. by eexists. Qed.
-  Definition ltl_now := unseal ltl_now_aux.
-  Definition ltl_now_unseal :
-    @ltl_now = @ltl_now_def := seal_eq ltl_now_aux.
-
   Inductive ltl_next_def (P : tProp) : tProp :=
   | ltl_next_empty H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨⟩ @ H2)
   | ltl_next_single s H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨s⟩ @ H2)
@@ -696,11 +685,9 @@ Section ltl_primitives.
 
 End ltl_primitives.
 
-Global Instance: Params (@ltl_now) 2 := {}.
 Global Instance: Params (@ltl_next) 2 := {}.
 
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
-Notation "↓ P" := (ltl_now P) (at level 20, right associativity) : bi_scope.
 
 Section ltl_lemmas.
   Context {S L : Type}.
@@ -712,7 +699,7 @@ Section ltl_lemmas.
     (@ltl_pure_unseal S L, @ltl_and_unseal S L, @ltl_or_unseal S L,
        @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
          @ltl_later_unseal S L, @ltl_internal_eq_unseal S L,
-    @ltl_next_unseal S L, @ltl_now_unseal S L, @ltl_always_unseal S L).
+    @ltl_next_unseal S L, (* @ltl_now_unseal S L,  *)@ltl_always_unseal S L).
 
   Ltac ltl_unseal := rewrite !ltl_unseal' /=.
 
@@ -747,6 +734,9 @@ Section ltl_lemmas.
   Lemma bi_wand_impl (P Q : tProp) :
     (P -∗ Q) ⊣⊢ (P → Q).
   Proof. constructor. intros tr. unseal. done. Qed.
+
+  Lemma ltl_dup (P : tProp) : P ⊢ P ∧ P.
+  Proof. iIntros "H". iFrame. Qed.
 
   (** AXIOMS *)
 
@@ -938,30 +928,6 @@ Section ltl_lemmas.
     iSplit.
     - iApply ltl_always_next_comm_1.
     - iApply ltl_always_next_comm_2.
-  Qed.
-
-  (** LTL Now *)
-
-  Lemma ltl_now_mono P Q :
-    (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):tProp.
-  Proof.
-    intros HPQ.
-    ltl_unseal. constructor.
-    intros [[[]|]]; inversion 1; try constructor; by apply HPQ.
-  Qed.
-
-  Lemma ltl_now_false (P Q : option (S* option L) → Prop) :
-    (∀ osl, P osl → Q osl → False) → (↓ P:tProp) -∗ ↓ Q -∗ False.
-  Proof. unseal. ltl_unseal.
-         intros HPQ. constructor.
-         intros tr _ HP HQ.
-         destruct tr as [[[]|]]; eapply (HPQ); simpl in *.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
   Qed.
 
   (** LTL Exists *)
