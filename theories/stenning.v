@@ -1,4 +1,4 @@
-From ltl Require Import ltl ltl_now classical examples.
+From ltl Require Import ltl ltl_now classical.
 
 Import tProp.
 
