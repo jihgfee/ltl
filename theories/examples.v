@@ -199,7 +199,7 @@ Section simple_ex.
 
   Notation tProp := (tProp state label steps).
 
-  Instance simple_foo : LTL state label steps.
+  Instance simple_ltl : LTL state label steps.
   Proof. 
     constructor. intros.
     destruct (decide (s' = s + 1)).
@@ -218,7 +218,7 @@ Section simple_ex.
     iFrame. 
   Qed.
 
-  Lemma my_property (n:nat) : ↓s 0 ⊢ ◊ ↓s n : tProp.
+  Lemma eventually_n (n:nat) : ↓s 0 ⊢ ◊ ↓s n : tProp.
   Proof.   
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
@@ -244,7 +244,7 @@ Section advanced_ex.
 
   Notation tProp := (tProp state' label' steps').
 
-  Instance advanced_foo : LTL state' label' steps'.
+  Instance advanced_ltl : LTL state' label' steps'.
   Proof. 
     constructor. intros.
     destruct s as [i b].
@@ -257,8 +257,7 @@ Section advanced_ex.
       + constructor 2. intros H. inversion H; subst. done. done. 
   Qed.
 
-  Axiom fair :
-    ∀ (b:bool), ⊢ ◊ ↓l b : tProp.
+  Axiom fair : ∀ (b:bool), ⊢ ◊ ↓l b : tProp.
 
   Lemma step_b b i :
     ↓s (i,b) ⊢ ↓l b ∧ ○ ↓s (i+1,negb b) ∨ ↓l (negb b) ∧ ○ (↓s (i,b)) : tProp.
@@ -273,9 +272,13 @@ Section advanced_ex.
     - iRight. iFrame.
   Qed.
 
-  Lemma my_property'' i b :
-    ↓s (i,b) ⊢ ↓s (i,b) ∪ ↓s (i+1,negb b) : tProp.
+  Lemma eventually_incr i b :
+    ↓s (i,b) ⊢ ◊ ↓s (i+1,negb b) : tProp.
   Proof.
+    iIntros "Hs".
+    iAssert (↓s (i,b) ∪ ↓s (i+1,negb b))%I with "[Hs]" as "H"; last first.
+    { by iApply (ltl_until_mono with "[] [] H"); eauto. }
+    iRevert "Hs".
     iDestruct (fair b) as "-#Hfair".
     iApply (ltl_eventually_ind with "[] Hfair").
     iIntros "!> [Hl|H]".
@@ -297,26 +300,24 @@ Section advanced_ex.
     iApply ltl_until_intro_next. iFrame. iModIntro. by iApply "IH".
   Qed.
 
-  Lemma my_property' n b :
-    ↓s (0,b) ⊢ ∃ b, ◊ ↓s (n,b) : tProp.
+  Lemma eventually_n' n :
+    ↓fs fst 0 ⊢ ◊ ↓fs fst n : tProp.
   Proof.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. }
-    iInduction j as [|j IHj] forall (n i b H1 H2).
-    { simplify_eq. rewrite right_id. iIntros "H". iExists b. iApply ltl_eventually_intro_now. done. }
-    iIntros "H".
-    iDestruct (my_property'' with "H") as "H'".
-    iApply (ltl_until_ind with "[] H'").
-    iIntros "!> [H|(H1&H3&H2)]".
-    { iDestruct ("IHj" with "[] [] H") as "H".
-      { instantiate (1:=n). rewrite -H1. iPureIntro. lia. }
+    iInduction j as [|j IHj] forall (n i H1 H2).
+    { simplify_eq. rewrite right_id. iIntros "H".
+      by iApply ltl_eventually_intro_now. }
+    iIntros "Hi".
+    iDestruct (ltl_now_prod_fst with "Hi") as (b) "Hs".
+    iDestruct (eventually_incr with "Hs") as "H'".
+    iApply (ltl_eventually_ind with "[] H'").
+    iIntros "!> [H|(H3&H2)]".
+    { iApply "IHj".
+      { instantiate (1:=i+1). rewrite -H1. iPureIntro. lia. }
       { iPureIntro. lia. }
-      done. }
-    rewrite ltl_next_exists.
-    iDestruct "H2" as (b') "H2".
-    iExists b'.
-    iApply ltl_next_eventually. iModIntro.
-    done.
+      rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]". }
+    by iApply ltl_next_eventually.
   Qed.
 
 End advanced_ex.

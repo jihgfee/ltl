@@ -82,13 +82,13 @@ Section stenning_ex.
     - eexists (_,Recv _ None),_. econstructor. eauto.
   Qed.
 
-  Definition ltl_now_state_A st : tProp := ∃ sB, ↓s (st,sB).
+  Definition ltl_now_state_A st : tProp := ↓fs fst st.
   Notation "↓sA st" := (ltl_now_state_A st) (at level 20, right associativity) : bi_scope.
 
-  Definition ltl_now_state_B st : tProp := ∃ sA, ↓s (sA,st).
+  Definition ltl_now_state_B st : tProp := ↓fs snd st.
   Notation "↓sB st" := (ltl_now_state_B st) (at level 20, right associativity) : bi_scope.
 
-  Definition ltl_now_label_label lbl : tProp := ∃ a, ↓l (lbl,a).
+  Definition ltl_now_label_label lbl : tProp := ↓fl fst lbl.
   Notation "↓ll lbl" := (ltl_now_label_label lbl) (at level 20, right associativity) : bi_scope.
 
   Axiom fair_sched : ∀ (b:actor), ⊢ (◊ ↓ll b):tProp.
@@ -106,7 +106,7 @@ Section stenning_ex.
   (* TODO: Move this; OBS needs to know trace is infinite *)
   Lemma ltl_lbl : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ l, ↓l l : tProp.
   Proof.
-    econstructor. unseal. rewrite /ltl_now_state /ltl_now_label.
+    econstructor. unseal. rewrite /ltl_now_state /ltl_now_state_f /ltl_now_label /ltl_now_label_f.
     rewrite ltl_now_unseal. intros.
     destruct H; [|done].
     destruct tr. destruct tr_car.
@@ -119,17 +119,29 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stA, ↓sA stA : tProp.
-  Proof. iDestruct 1 as "[[% H]|[% H]]"; iDestruct (ltl_st with "H") as ([]) "$". Qed.
+  Proof. iDestruct 1 as "[[% H]|[% H]]".
+         - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+         - iDestruct (ltl_st with "H") as ([]) "H".
+           rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+  Qed.
 
   Lemma stenning_B : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stB, ↓sB stB : tProp.
-  Proof. iDestruct 1 as "[[% H]|[% H]]"; iDestruct (ltl_st with "H") as ([]) "$". Qed.
+  Proof. iDestruct 1 as "[[% H]|[% H]]".
+         - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+         - iDestruct (ltl_st with "H") as ([]) "H".
+           rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+  Qed.
 
   Lemma stenning_A_or_B : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ↓ll A ∨ ↓ll B.
-  Proof. iIntros "H". iDestruct (ltl_lbl with "H") as ([[]]) "H"; iFrame. Qed.
+  Proof. iIntros "H". iDestruct (ltl_lbl with "H") as ([[]]) "H";
+           rewrite -ltl_now_label_prod_and;
+           iDestruct "H" as "[? ?]"; iFrame.
+  Qed.
 
   Lemma ltl_now_A_agree x y :
     ⊢ ↓sA x → ↓sA y → ⌜x = y⌝.
   Proof.
+    rewrite !/ltl_now_state_A (ltl_now_prod_fst x) (ltl_now_prod_fst y).
     iDestruct 1 as (?) "H1". iDestruct 1 as (?) "H2".
     iDestruct (ltl_now_state_agree with "H1 H2") as %Heq. by simplify_eq.
   Qed.
@@ -137,6 +149,7 @@ Section stenning_ex.
   Lemma ltl_now_B_agree x y :
     ⊢ ↓sB x → ↓sB y → ⌜x = y⌝.
   Proof.
+    rewrite !/ltl_now_state_B (ltl_now_prod_snd x) (ltl_now_prod_snd y).
     iDestruct 1 as (?) "H1". iDestruct 1 as (?) "H2".
     iDestruct (ltl_now_state_agree with "H1 H2") as %Heq. by simplify_eq.
   Qed.
@@ -145,14 +158,15 @@ Section stenning_ex.
     ↓sA (ASending,i) ∧ ↓ll A ⊢ ↓l (A, Send (mAB i)) ∧ ○ ↓sA (AReceiving,i) : tProp.
   Proof.
     iIntros "[Hs HA]".
-    iDestruct "Hs" as (stB) "Hs".
-    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_now_prod_fst with "Hs") as (stB) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "HA") as (l) "HA".
     iDestruct (ltl_dup with "HA") as "[HA HA']".
     iDestruct (trace_steps_det with "[Hs HA]") as  (s' Hsteps') "Hs'".
     { eexists _,_. econstructor. }
     { iFrame. }
     inversion Hsteps'; simplify_eq.
     iFrame. iModIntro.
+    iApply ltl_now_prod_fst.
     iExists _. done.
   Qed.
 
@@ -163,27 +177,29 @@ Section stenning_ex.
       (⌜omsg = Some $ mBA i⌝ ∧ ↓l (A, Recv saA omsg) ∧ ○ ↓sA (ASending, S i)).
   Proof.
     iIntros "[Hs HA]".
-    iDestruct "Hs" as (stB) "Hs".
-    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_now_prod_fst with "Hs") as (stB) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "HA") as (l) "HA".
     iDestruct (ltl_dup with "HA") as "[HA HA']".
     iDestruct (trace_steps_det with "[$Hs $HA]") as  (s' Hsteps') "Hs'".
     { eexists (_,Recv _ None),_. econstructor. eauto. }
     inversion Hsteps'; simplify_eq.
-    - iExists omsg. iLeft. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
-    - iExists (Some (mBA i)). iRight. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+    - iExists omsg. iLeft. iFrame. iSplit; [eauto|]. iModIntro.
+      iApply ltl_now_prod_fst. iExists _. iFrame.
+    - iExists (Some (mBA i)). iRight. iFrame. iSplit; [eauto|]. iModIntro.
+      iApply ltl_now_prod_fst. iExists _. iFrame.
   Qed.
 
   Lemma stenning_A_B stA :
     ↓sA stA ∧ ↓ll B ⊢ ○ ↓sA stA.
   Proof.
     iIntros "[Hs HA]".
-    iDestruct "Hs" as (stB) "Hs".
-    iDestruct "HA" as (l) "HA".
+    iDestruct (ltl_now_prod_fst with "Hs") as (stB) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "HA") as (l) "HA".
     iDestruct (ltl_dup with "HA") as "[HA HA']".
     iDestruct (trace_steps_det with "[$Hs $HA]") as  (s' Hsteps') "Hs'".
     { apply stenning_reducible. }
     inversion Hsteps'; simplify_eq;
-      iModIntro; iExists _; iFrame.
+      iModIntro; iApply ltl_now_prod_fst; iExists _; iFrame.
   Qed.
 
   Lemma stenning_BReceiving_B i :
@@ -194,42 +210,44 @@ Section stenning_ex.
       (⌜omsg = Some $ mAB (S i)⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BSending, S i)).
   Proof.
     iIntros "[Hs Hl]".
-    iDestruct "Hs" as (stA) "Hs".
-    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_now_prod_snd with "Hs") as (stA) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "Hl") as (l) "Hl".
     iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
     iDestruct (trace_steps_det with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
     { apply stenning_reducible. }
     inversion Hsteps'; simplify_eq.
-    - iExists None. iLeft. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+    - iExists None. iLeft. iFrame. iSplit; [eauto|]. iModIntro.
+      iApply ltl_now_prod_snd. iExists _. iFrame.
     - iExists _. iRight. iLeft. iExists _. iFrame. iSplit; [eauto|]. iSplit; [eauto|].
-      iModIntro. iExists _. iFrame.
-    - iExists _. iRight. iRight. iFrame. iSplit; [eauto|]. iModIntro. iExists _. iFrame.
+      iModIntro. iApply ltl_now_prod_snd. iExists _. iFrame.
+    - iExists _. iRight. iRight. iFrame. iSplit; [eauto|]. iModIntro.
+      iApply ltl_now_prod_snd. iExists _. iFrame.
   Qed.
 
   Lemma stenning_BSending_B i :
     ↓sB (BSending,i) ∧ ↓ll B ⊢ ↓l (B, Send (mBA i)) ∧ ○ ↓sB (BReceiving,i) : tProp.
   Proof.
     iIntros "[Hs Hl]".
-    iDestruct "Hs" as (stA) "Hs".
-    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_now_prod_snd with "Hs") as (stA) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "Hl") as (l) "Hl".
     iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
     iDestruct (trace_steps_det with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
     { apply stenning_reducible. }
     inversion Hsteps'; simplify_eq.
-    iFrame. iModIntro. iExists _. iFrame.
+    iFrame. iModIntro. iApply ltl_now_prod_snd. iExists _. iFrame.
   Qed.
 
   Lemma stenning_B_A stB :
     ↓sB stB ∧ ↓ll A ⊢ ○ ↓sB stB.
   Proof.
     iIntros "[Hs Hl]".
-    iDestruct "Hs" as (stA) "Hs".
-    iDestruct "Hl" as (l) "Hl".
+    iDestruct (ltl_now_prod_snd with "Hs") as (stA) "Hs".
+    iDestruct (ltl_now_label_prod_fst with "Hl") as (l) "Hl".
     iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
     iDestruct (trace_steps_det with "[$Hs $Hl]") as  (s' Hsteps') "Hs'".
     { apply stenning_reducible. }
     inversion Hsteps'; simplify_eq;
-      iModIntro; iExists _; iFrame.
+      iModIntro; iApply ltl_now_prod_snd; iExists _; iFrame.
   Qed.
 
   (* Actual lemmas *)
@@ -243,7 +261,7 @@ Section stenning_ex.
     { iModUnIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-    { iLeft. iDestruct "Hs'" as (?) "Hs'". iExists _. iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iExists _. iFrame. }
     { iModUnIntro. iFrame. }
     iDestruct (stenning_A_B with "[$Hs $HB]") as "Hs".
     iEval (rewrite -ltl_next_eventually). iModIntro.
@@ -259,7 +277,7 @@ Section stenning_ex.
     { iModUnIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-    { iLeft. iDestruct "Hs'" as (?) "Hs'". iExists _. iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iExists _. iFrame. }
     - iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
       iEval (rewrite -ltl_next_eventually). iModIntro. by iApply "IH".
     - iModUnIntro. iFrame.
@@ -282,7 +300,7 @@ Section stenning_ex.
     iDestruct (ltl_dup with "H'") as "[H' H'']".
     iDestruct (ltl_dup with "H''") as "[H'' H''']".
     iDestruct (stenning_A_or_B with "[H''']") as "[HA|HB]".
-    { iLeft. iDestruct "H'''" as (?) "H'". iExists _.  iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_fst with "H'''") as (?) "H'". iExists _.  iFrame. }
     { iDestruct (stenning_ASending_A with "[$H' $HA]") as "[Hs Hl]".
       iModUnIntro. iFrame. }
     iDestruct (stenning_A_B with "[$H' $HB]") as "Hs".
@@ -299,7 +317,8 @@ Section stenning_ex.
   Proof.
     iIntros "[Hs Hl]".
     iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
-    iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m) "[H|H]".
+    iDestruct (stenning_AReceiving_A with "[$Hs Hl]") as (m) "[H|H]".
+    { iApply ltl_now_label_prod_fst. by iExists _. }
     { iDestruct "H" as (Heq) "[Hl Hs]".
       iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'. simplify_eq. }
     iDestruct "H" as (->) "[Hl Hs]".
@@ -321,7 +340,8 @@ Section stenning_ex.
     { destruct stA.
       - rewrite -ltl_eventually_next.
         iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
-        iDestruct (stenning_ASending_A with "[$Hs $Hl]") as "[Hl Hs]".
+        iDestruct (stenning_ASending_A with "[$Hs Hl]") as "[Hl Hs]".
+        { iApply ltl_now_label_prod_fst. by iExists _. }
         iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'. simplify_eq.
       - rewrite -ltl_next_eventually. iDestruct (stenning_A_advance with "[$Hl $Hs]") as "Hs".
         iModIntro. iMod (stenning_disjoint_A with "Hs") as "[Hs Hl]".
@@ -329,7 +349,7 @@ Section stenning_ex.
     iDestruct "H" as "[H' IH]".
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-    { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iFrame. }
     2: { iDestruct (stenning_A_B with "[$Hs $HB]") as "Hs".
       iEval (rewrite -ltl_next_eventually).
       iModIntro. by iApply "IH". }
@@ -358,7 +378,7 @@ Section stenning_ex.
     { iModUnIntro. iFrame. }
     iIntros "!> >[Hs Hl]".
     iDestruct (stenning_ASending_A with "[$Hs Hl]") as "[Hl' Hs]".
-    { iFrame. }
+    { iApply ltl_now_label_prod_fst. by iExists _. }
     iModIntro.
     iDestruct (stenning_disjoint_A with "Hs") as ">[Hs Hl]".
     iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m') "[(%Hm&Hl'&Hs)|(%Hm&Hl'&Hs)]".
@@ -377,7 +397,7 @@ Section stenning_ex.
     iIntros "Hs".
     iDestruct (stenning_A_send with "Hs") as ">[Hs Hl]".
     iDestruct (stenning_ASending_A with "[$Hs Hl]") as "[Hl Hs]".
-    { iFrame. }
+    { iApply ltl_now_label_prod_fst. by iExists _. }
     iEval (rewrite -ltl_next_eventually). iModIntro.
     iDestruct (fair_sched A) as "H".
     iRevert "Hs".
@@ -389,7 +409,7 @@ Section stenning_ex.
       - iModUnIntro. iExists m. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-    { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iFrame. }
     - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
       iDestruct (stenning_AReceiving_A with "[$Hs $HA]") as (m) "[(?&?&?)|(?&?&?)]".
       + iModUnIntro. iExists m. iFrame.
@@ -409,7 +429,7 @@ Section stenning_ex.
     { iModUnIntro. iFrame. }
     iIntros "!> >[%m' [Hs Hl]]".
     iDestruct (stenning_AReceiving_A with "[$Hs Hl]") as (m'') "[H1|H2]".
-    { iFrame. }
+    { iApply ltl_now_label_prod_fst. by iExists _. }
     - iDestruct "H1" as (?) "[Hl Hs]".
       iModIntro.
       iMod (stenning_A_try_recv with "Hs") as "[%m''' [Hs Hl]]".
@@ -478,7 +498,7 @@ Section stenning_ex.
           iModUnIntro. done. }
         iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
         iDestruct (stenning_BReceiving_B with "[$Hs Hl]") as "H".
-        { iFrame. }
+        { iApply ltl_now_label_prod_fst. by iExists _. }
         iDestruct "H" as (m) "[H|[H|H]]".
         + iDestruct "H" as (->) "[Hl Hs]".
           iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
@@ -496,7 +516,7 @@ Section stenning_ex.
       destruct stB.
       + iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
         iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-        { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+        { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iFrame. }
         * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
           iEval (rewrite -ltl_next_eventually).
           iModIntro.
@@ -507,7 +527,7 @@ Section stenning_ex.
           by iApply "IH".
       + iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
         iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-        { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+        { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iFrame. }
         * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
           iEval (rewrite -ltl_next_eventually).
           iModIntro.
@@ -546,13 +566,13 @@ Section stenning_ex.
         - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
           iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
           iDestruct (stenning_BSending_B with "[$Hs Hl]") as "[Hl Hs]".
-          { iFrame. }
+          { iApply ltl_now_label_prod_fst. by iExists _. }
           iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
           simplify_eq.
         - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
           iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
           iDestruct (stenning_BReceiving_B with "[$Hs Hl]") as "H".
-          { iFrame. }
+          { iApply ltl_now_label_prod_fst. by iExists _. }
           iDestruct "H" as (m) "[H|[H|H]]".
           + iDestruct "H" as (->) "[Hl Hs]".
             iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq.
@@ -568,7 +588,7 @@ Section stenning_ex.
       destruct stB.
       + iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
         iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-        { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+        { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iFrame. }
         * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
           iEval (rewrite -ltl_next_eventually).
           iModIntro.
@@ -579,7 +599,7 @@ Section stenning_ex.
           by iApply "IH".
       + iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
         iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-        { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+        { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iFrame. }
         * iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
           iEval (rewrite -ltl_next_eventually).
           iModIntro.
@@ -606,7 +626,7 @@ Section stenning_ex.
     iIntros "!> [%stA' Hs]".
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
-    { iLeft. iDestruct "Hs'" as (?) "Hs'". iFrame. }
+    { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iFrame. }
     2: { iDestruct (stenning_A_B with "[$Hs $HB]") as "H".
       iModIntro. iExists _. iFrame. }
     destruct stA'.
