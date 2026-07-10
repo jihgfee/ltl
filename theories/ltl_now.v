@@ -273,6 +273,26 @@ Section ltl_now_state_label_lemmas.
       destruct osl as [[?[]]|]; simplify_eq; by naive_solver.
   Qed.
 
+  Lemma ltl_reducible_infinite `{LTL S L Rel} s : (∀ s, reducible s) → ↓s s ⊢ ∞ : tProp.
+  Proof.
+    iIntros (Hred) "Hs".
+    iAssert (□ ∃ s, ↓s s ∧ ¬ ↯)%I with "[Hs]" as "#H"; last first.
+    { iIntros "!>". iDestruct "H" as (?) "[_ $]". }
+    iApply ltl_always_intro; last first.
+    { iExists s. iSplit; [done|].
+      iIntros "Hdone".
+      iCombine "Hs Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
+      rewrite ltl_now_adequate.
+      iDestruct "H" as %([[?[]]|]&?&?); naive_solver. }
+    iIntros "!>". clear s. iDestruct 1 as (s) "[Hs _]".
+    iDestruct (trace_steps with "Hs") as (l s' Hrel) "[Hl Hs']"; [done|].
+    iModIntro. iExists s'. iSplit; [done|].
+    iIntros "Hdone".
+    iCombine "Hs' Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
+    rewrite ltl_now_adequate.
+    iDestruct "H" as %([[?[]]|]&?&?); naive_solver.
+  Qed.
+
 End ltl_now_state_label_lemmas.
 
 Section ltl_now_state_prod.

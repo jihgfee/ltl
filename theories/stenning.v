@@ -13,55 +13,51 @@ Section stenning_ex.
   Definition Message : Set := actor * nat * actor.
   Inductive stenning_action : Set := Send (m:Message) | Recv (b:actor) (o:option Message).
   Definition stenning_label : Set := actor * stenning_action.
-  Definition saA : actor := A.
-  Definition saB : actor := B.
-  Definition Arole : actor := A.
-  Definition Brole : actor := B.
 
-  Definition mAB n : Message := (saA, n, saB).
-  Definition mBA n : Message := (saB, n, saA).
+  Definition mAB n : Message := (A, n, B).
+  Definition mBA n : Message := (B, n, A).
 
   Inductive stenning_trans : stenning_state → stenning_label → stenning_state → Prop :=
   | A_Send n stB :
     stenning_trans
       ((ASending, n), stB)
-      (Arole, Send $ mAB n)
+      (A, Send $ mAB n)
       ((AReceiving, n), stB)
   | A_RecvFail n stB omsg :
     omsg ≠ Some $ mBA n →
     stenning_trans
       ((AReceiving, n), stB)
-      (Arole, Recv saA omsg)
+      (A, Recv A omsg)
       ((ASending, n), stB)
   | A_RecvSucc n stB omsg :
     omsg = Some $ mBA n →
     stenning_trans
       ((AReceiving, n), stB)
-      (Arole, Recv saA omsg)
+      (A, Recv A omsg)
       ((ASending, (S n)), stB)
   | B_Send stA n :
     stenning_trans
       (stA, (BSending, n))
-      (Brole, Send (mBA (n)))
+      (B, Send (mBA (n)))
       (stA, (BReceiving, n))
   | B_RecvFailEmpty stA n omsg :
     omsg = None →
     stenning_trans
       (stA, (BReceiving, n))
-      (Brole, Recv saB omsg)
+      (B, Recv B omsg)
       (stA, (BReceiving, n))
   | B_RecvFail stA n m omsg :
     omsg = Some $ m →
     m ≠ mAB (S n) →
     stenning_trans
       (stA, (BReceiving, n))
-      (Brole, Recv saB omsg)
+      (B, Recv B omsg)
       (stA, (BSending, n))
   | B_RecvSucc stA n omsg :
     omsg = Some $ mAB (S n) →
     stenning_trans
       (stA, (BReceiving, n))
-      (Brole, Recv saB omsg)
+      (B, Recv B omsg)
       (stA, (BSending, (S n)))
   .
 
@@ -91,14 +87,13 @@ Section stenning_ex.
   Definition ltl_now_label_label lbl : tProp := ↓fl fst lbl.
   Notation "↓ll lbl" := (ltl_now_label_label lbl) (at level 20, right associativity) : bi_scope.
 
-  Axiom fair_sched : ∀ (b:actor), ⊢ (◊ ↓ll b):tProp.
+  Axiom fair_sched : ∀ (b:actor), ⊢ (◊ ↓ll b) : tProp.
 
   Axiom fair_net :
-    ∀ (saA:actor) (Φ: nat → Prop) (saB:actor),
-    ⊢
-    (□ ◊ ∃ (m:nat), ⌜Φ m⌝ ∧ ↓l (saA, Send (saA, m, saB))) →
-    (□ ◊ ∃ om, ↓l (saB, Recv saB om)) →
-    ◊ ∃ (m:nat), ⌜Φ m⌝ ∧ ↓l (saB, Recv saB (Some (saA, m, saB))) : tProp.
+    ∀ (A:actor) (Φ: nat → Prop) (B:actor),
+    ⊢ (□ ◊ ∃ (m:nat), ⌜Φ m⌝ ∧ ↓l (A, Send (A, m, B))) →
+      (□ ◊ ∃ om, ↓l (B, Recv B om)) →
+      ◊ ∃ (m:nat), ⌜Φ m⌝ ∧ ↓l (B, Recv B (Some (A, m, B))) : tProp.
 
   Axiom stenning_safety_inv :
     ⊢ ∃ i stA stB, ↓sA (stA,S i) ∧ (↓sB (stB,S i) ∨ ↓sB (stB,i)).
@@ -146,36 +141,16 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_infinite s : ↓s s ⊢ ∞ : tProp.
-  Proof.
-    iIntros "Hs".
-    iAssert (□ ∃ s, ↓s s ∧ ¬ ↯)%I with "[Hs]" as "#H"; last first.
-    { iIntros "!>". iDestruct "H" as (?) "[_ $]". }
-    iApply ltl_always_intro; last first.
-    { iExists s. iSplit; [done|].
-      iIntros "Hdone".
-      iCombine "Hs Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
-      rewrite ltl_now_adequate.
-      iDestruct "H" as %([[?[]]|]&?&?); naive_solver. }
-    iIntros "!>". clear s. iDestruct 1 as (s) "[Hs _]".
-    iDestruct (trace_steps with "Hs") as (l s' Hrel) "[Hl Hs']".
-    { apply stenning_reducible. }
-    iModIntro. iExists s'. iSplit; [done|].
-    iIntros "Hdone".
-    iCombine "Hs' Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
-    rewrite ltl_now_adequate.
-    iDestruct "H" as %([[?[]]|]&?&?); naive_solver.
-  Qed.
+  Proof. apply ltl_reducible_infinite. apply stenning_reducible. Qed.
 
-  Lemma ltl_now_A_agree x y :
-    ⊢ ↓sA x → ↓sA y → ⌜x = y⌝.
+  Lemma ltl_now_A_agree x y : ⊢ ↓sA x → ↓sA y → ⌜x = y⌝.
   Proof.
     rewrite !/ltl_now_state_A (ltl_now_prod_fst x) (ltl_now_prod_fst y).
     iDestruct 1 as (?) "H1". iDestruct 1 as (?) "H2".
     iDestruct (ltl_now_state_agree with "H1 H2") as %Heq. by simplify_eq.
   Qed.
 
-  Lemma ltl_now_B_agree x y :
-    ⊢ ↓sB x → ↓sB y → ⌜x = y⌝.
+  Lemma ltl_now_B_agree x y : ⊢ ↓sB x → ↓sB y → ⌜x = y⌝.
   Proof.
     rewrite !/ltl_now_state_B (ltl_now_prod_snd x) (ltl_now_prod_snd y).
     iDestruct 1 as (?) "H1". iDestruct 1 as (?) "H2".
@@ -201,8 +176,8 @@ Section stenning_ex.
   Lemma stenning_AReceiving_A i :
     ↓sA (AReceiving, i) ∧ ↓ll A ⊢
     ∃ omsg,
-      (⌜omsg ≠ Some $ mBA i⌝ ∧ ↓l (A, Recv saA omsg) ∧ ○ ↓sA (ASending, i)) ∨
-      (⌜omsg = Some $ mBA i⌝ ∧ ↓l (A, Recv saA omsg) ∧ ○ ↓sA (ASending, S i)).
+      (⌜omsg ≠ Some $ mBA i⌝ ∧ ↓l (A, Recv A omsg) ∧ ○ ↓sA (ASending, i)) ∨
+      (⌜omsg = Some $ mBA i⌝ ∧ ↓l (A, Recv A omsg) ∧ ○ ↓sA (ASending, S i)).
   Proof.
     iIntros "[Hs HA]".
     iDestruct (ltl_now_prod_fst with "Hs") as (stB) "Hs".
@@ -233,9 +208,9 @@ Section stenning_ex.
   Lemma stenning_BReceiving_B i :
     ↓sB (BReceiving,i) ∧ ↓ll B ⊢
     ∃ omsg,
-      (⌜omsg = None⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BReceiving, i)) ∨
-      (∃ m, ⌜omsg = Some m⌝ ∧ ⌜m ≠ mAB (S i)⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BSending, i)) ∨
-      (⌜omsg = Some $ mAB (S i)⌝ ∧ ↓l (B,Recv saB omsg) ∧ ○ ↓sB (BSending, S i)).
+      (⌜omsg = None⌝ ∧ ↓l (B,Recv B omsg) ∧ ○ ↓sB (BReceiving, i)) ∨
+      (∃ m, ⌜omsg = Some m⌝ ∧ ⌜m ≠ mAB (S i)⌝ ∧ ↓l (B,Recv B omsg) ∧ ○ ↓sB (BSending, i)) ∨
+      (⌜omsg = Some $ mAB (S i)⌝ ∧ ↓l (B,Recv B omsg) ∧ ○ ↓sB (BSending, S i)).
   Proof.
     iIntros "[Hs Hl]".
     iDestruct (ltl_now_prod_snd with "Hs") as (stA) "Hs".
@@ -312,7 +287,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A_send i :
-    ↓sA ((ASending, i)) ⊢ ◊ (↓sA ((ASending, i)) ∧ ↓l (saA, Send (mAB i))) : tProp.
+    ↓sA ((ASending, i)) ⊢ ◊ (↓sA ((ASending, i)) ∧ ↓l (A, Send (mAB i))) : tProp.
   Proof.
     iIntros "Hs".
     iDestruct (fair_sched A) as "H".
@@ -338,10 +313,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A_advance i :
-    ↓sA (AReceiving, i) ∧
-    ↓l (saA, Recv saA (Some $ mBA i))
-    ⊢ ○ ↓sA (ASending, S i)
-    : tProp.
+    ↓sA (AReceiving, i) ∧ ↓l (A, Recv A (Some $ mBA i)) ⊢ ○ ↓sA (ASending, S i) : tProp.
   Proof.
     iIntros "[Hs Hl]".
     iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
@@ -354,10 +326,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A_eventually_advance i :
-    ↓sA (ASending, i) ∧
-    ◊ ↓l (saA, Recv saA (Some $ mBA i))
-    ⊢ ◊ ↓sA (ASending, S i)
-    : tProp.
+    ↓sA (ASending, i) ∧ ◊ ↓l (A, Recv A (Some $ mBA i)) ⊢ ◊ ↓sA (ASending, S i) : tProp.
   Proof.
     assert (∃ stA, ASending = stA) as [stA Heq].
     { eauto. }
@@ -398,7 +367,7 @@ Section stenning_ex.
 
   Lemma stenning_A_always_send i :
     (□ ¬ ↓sA (ASending, S i)) ∧
-    ↓sA (ASending, i) ⊢ □ ◊ (↓sA (ASending, i) ∧ ↓l (saA, Send (mAB i))) : tProp.
+    ↓sA (ASending, i) ⊢ □ ◊ (↓sA (ASending, i) ∧ ↓l (A, Send (mAB i))) : tProp.
   Proof.
     iIntros "[#Hm Hs]".
     iMod (stenning_A_send with "Hs") as "[Hs Hl]".
@@ -419,7 +388,7 @@ Section stenning_ex.
 
   Lemma stenning_A_try_recv i :
     ↓sA (ASending, i) ⊢
-    ◊ ∃ om : option Message, ↓sA ((AReceiving, i)) ∧ ↓l (saA, Recv saA om)
+    ◊ ∃ om : option Message, ↓sA ((AReceiving, i)) ∧ ↓l (A, Recv A om)
     : tProp.
   Proof.
     iIntros "Hs".
@@ -448,7 +417,7 @@ Section stenning_ex.
 
   Lemma stenning_A_always_try_recv i :
     (□ ¬ ↓sA (ASending, S i)) ∧ ↓sA (ASending, i)
-    ⊢ □ ◊ ∃ om : option Message, ↓sA ((AReceiving, i)) ∧ ↓l (saA, Recv saA om)
+    ⊢ □ ◊ ∃ om : option Message, ↓sA ((AReceiving, i)) ∧ ↓l (A, Recv A om)
     : tProp.
   Proof.
     iIntros "[#Hm Hs]".
@@ -468,7 +437,7 @@ Section stenning_ex.
 
   (* OBS: Hypothesis for this lemma is only needed for [stenning_B] *)
   Lemma stenning_B_always_try_recv :
-    (□ ◊ ∃ l, ↓l l) ⊢ □ ◊ ∃ m, ↓l (saB, Recv saB m) : tProp.
+    (□ ◊ ∃ l, ↓l l) ⊢ □ ◊ ∃ m, ↓l (B, Recv B m) : tProp.
   Proof.
     iIntros "#Hl !>". iMod "Hl".
     iDestruct (stenning_B with "[$Hl]") as (stB) "Hs".
@@ -490,7 +459,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_B_recv i :
-    □ ◊ ↓l (saA, Send (mAB i)) ⊢ ◊ ↓l (saB, Recv saB $ Some (mAB i)) : tProp.
+    □ ◊ ↓l (A, Send (mAB i)) ⊢ ◊ ↓l (B, Recv B $ Some (mAB i)) : tProp.
   Proof.
     iIntros "#H".
     iDestruct (stenning_B_always_try_recv with "[H]") as "#HB".
@@ -504,8 +473,8 @@ Section stenning_ex.
   Lemma stenning_B_send i :
     ⊢
     □ (∃ stA, ↓sA (stA,i)) →
-    □ ◊ ↓l (saB, Recv saB $ Some (mAB i)) →
-    □ ◊ ↓l (saB, Send (mBA i))
+    □ ◊ ↓l (B, Recv B $ Some (mAB i)) →
+    □ ◊ ↓l (B, Send (mBA i))
     : tProp.
   Proof.
     iIntros "#Hst #Hrecv". iModIntro.
@@ -642,7 +611,7 @@ Section stenning_ex.
              iModIntro.
              by iApply "IH".
           -- iDestruct "Hs" as(->)  "(?&Hs)".
-             rewrite /saB. iExFalso. iApply "Hl". done.
+             iExFalso. iApply "Hl". done.
   Qed.
 
   Lemma stenning_A_preserved i :
@@ -705,7 +674,7 @@ Section stenning_ex.
   Qed.
 
   Theorem stenning_live_label i :
-    ↓sA (ASending, 0) ⊢ ◊ (↓l (saA, Send (mAB i))) : tProp.
+    ↓sA (ASending, 0) ⊢ ◊ (↓l (A, Send (mAB i))) : tProp.
   Proof.
     iIntros "H".
     iDestruct (stenning_live i with "H") as ">H".
