@@ -58,22 +58,6 @@ Arguments trace_maximal_singleton {_ _ _} _ _.
 
 Notation "tr @ tr_wf" := (Trace tr tr_wf) (at level 100).
 
-Section trace.
-  Context {St L: Type}.
-
-  Fixpoint after (n: nat) (t: trace St L) : (trace St L):=
-    match n with
-    | 0 => t
-    | Datatypes.S n =>
-        match t with
-        | ⟨ ⟩ => ⟨ ⟩
-        | ⟨ s ⟩ => ⟨ ⟩
-        | (s -[ ℓ ]-> xs) => after n (Some xs)
-        end
-    end.
-
-End trace.
-
 Definition tProp S L R := wf_trace S L R → Prop.
 
 Bind Scope bi_scope with tProp.
@@ -346,7 +330,7 @@ Section ltl_always.
 
   CoInductive ltl_always_def (P : tProp) : tProp :=
   | ltl_always_def_empty H1 H2 : P (⟨⟩ @ H1) → ltl_always_def P (⟨⟩ @ H2)
-  | ltl_always_def_singl s H1 H2 H3 : P (Trace ⟨ s ⟩ H1) → P (⟨⟩ @ H2) → ltl_always_def P (⟨s⟩ @ H3)
+  | ltl_always_def_singl s H1 H2 H3 : P (⟨ s ⟩ @ H1) → P (⟨⟩ @ H2) → ltl_always_def P (⟨s⟩ @ H3)
   | ltl_always_def_cons s l tr H1 H2 H3 : P (s -[l]-> tr @ H1) → ltl_always_def P (Some tr @ H2) → ltl_always_def P (s -[l]-> tr @ H3).
   Definition ltl_always_aux : seal (@ltl_always_def).
   Proof. by eexists. Qed.
@@ -1640,3 +1624,235 @@ Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi
 
 Tactic Notation "iModUnIntro" :=
   iEval (rewrite -ltl_until_intro_now).
+
+Section ltl_adequacy.
+  Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
+  Notation tProp := (tProp S L Rel).
+
+  Fixpoint after (n: nat) (t: trace S L) : (trace S L):=
+    match n with
+    | 0 => t
+    | Datatypes.S n =>
+        match t with
+        | ⟨ ⟩ => ⟨ ⟩
+        | ⟨ s ⟩ => ⟨ ⟩
+        | (s -[ ℓ ]-> xs) => after n (Some xs)
+        end
+    end.
+
+  Lemma after_nil n : after n ⟨⟩ = ⟨⟩.
+  Proof. induction n; [done|]. simpl. done. Qed.
+
+  Lemma after_singleton n s : after (Datatypes.S n) ⟨ s ⟩ = ⟨⟩.
+  Proof. induction n; [done|]. simpl. done. Qed.
+
+  Lemma after_cons n s l (tr : trace_aux S L) : after (Datatypes.S n) (s -[ l ]-> tr) =  after n (Some tr).
+  Proof. induction n; [done|]. simpl. simpl in *. done. Qed.
+
+
+  Lemma after_sum_comm n m (tr : trace S L) :
+    after n (after m tr) = after m (after n tr).
+  Proof.
+    revert tr m. induction n; intros tr m.
+    { simpl. done. }
+    revert n tr IHn.
+    induction m; intros n tr IHn.
+    { simpl. done. }
+    destruct tr as [].
+    - destruct t.
+      + simpl. destruct m; done.
+      + rewrite after_cons.
+        rewrite -IHn. 
+        rewrite IHm; [|done].
+        destruct t.
+        * simpl. rewrite !after_nil. done.
+        * simpl. done. 
+    - simpl. destruct m; done.
+  Qed.
+
+  Lemma after_foo n s l (tr : trace_aux S L) : after 1 (after n (s -[ l ]-> tr)) = after n (Some tr).
+  Proof.
+    rewrite after_sum_comm.
+    simpl. done.
+  Qed.    
+  
+  Lemma after_sum n m (tr : trace S L) :
+    after (n+m) tr = after n (after m tr).
+  Proof.
+    revert tr m.
+    induction n; intros tr m; [done|].
+    replace (Datatypes.S n + m) with (n + (Datatypes.S m)) by lia.
+    rewrite IHn.
+    replace (Datatypes.S n) with (n + 1) by lia.
+    rewrite IHn.
+    f_equiv.
+    destruct tr as [[]|] eqn:Heqn.
+    - simpl. destruct m; done.
+    - rewrite after_cons. 
+      by rewrite after_foo.
+    - simpl. destruct m; done.
+  Qed.
+
+  Program Definition wf_after : nat → wf_trace S L Rel → wf_trace S L Rel :=
+    λ n tr, Trace (after n (tr_car tr)) _.
+  Next Obligation.
+    intros.
+    destruct tr as [tr wf]. simpl.
+    revert tr wf.
+    induction n; intros tr wf.
+    { done. }
+    replace (Datatypes.S n) with (n+1) by lia.
+    rewrite after_sum.
+    apply IHn.
+    destruct tr as [[]|].
+    - constructor.
+    - simpl. inversion wf; simplify_eq. done.
+    - simpl. constructor.
+  Qed.
+
+  Import tProp.
+
+  Lemma ltl_adequate (P : tProp) :
+    (⊢ P)%I → ∀ tr, P tr.
+  Proof. intros. apply H. unseal. done. Qed.
+
+  Lemma ltl_next_adequate (P : tProp) tr :
+    (○ P)%I tr ≡ P (wf_after 1 tr).
+  Proof.
+    rewrite ltl_next_unseal.
+    split.
+    - intros.
+      rewrite /wf_after. simpl. by inversion H; simplify_eq.
+    - intros.
+      rewrite /wf_after. simpl. destruct tr as [[[]|]].
+      + by econstructor. 
+      + by econstructor. 
+      + by econstructor. 
+  Qed.
+
+  Lemma ltl_always_adequate (P : tProp) tr :
+    (□ P)%I tr ≡ ∀ n, P (wf_after n tr).
+  Proof.
+    rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.
+    split.
+    - intros.
+      revert tr H.
+      induction n; intros tr H.
+      { simpl. inversion H; simplify_eq; done. }
+      inversion H; simplify_eq; try done.
+      apply IHn in H4. 
+      done.
+    - intros.
+      revert tr H. cofix IH. intros tr H.
+      destruct tr as [[[]|]].
+      + pose proof (H 0). 
+        pose proof (H 1).
+        rewrite /wf_after in H0.
+        rewrite /wf_after in H1.
+        simpl in *.
+        econstructor; [apply H0|apply H1]. 
+      + pose proof (H 0). econstructor; [apply H0|]. apply IH.
+        intros n. specialize (H (Datatypes.S n)). done.
+      + pose proof (H 0). econstructor. apply H0. 
+     Unshelve. by inversion tr_wf0.
+  Qed.
+
+
+  Lemma ltl_eventually_adequate_1 (P : tProp) tr :
+    (∃ n, P (wf_after n tr)) → (◊ P)%I tr.
+  Proof.
+    rewrite ltl_until_unseal.
+    rewrite /ltl_until_def.
+    rewrite /bi_least_fixpoint.
+    simpl.
+    unseal.
+    intros.
+    destruct H as [n Hn].
+    revert tr Hn. induction n; intros tr Hn.
+    { 
+      intros Φ HP.
+      rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
+      inversion HP; simplify_eq.
+      + apply H. rewrite /ltl_until_F. 
+        unseal. left. apply Hn.
+      + apply H. rewrite /ltl_until_F. 
+        unseal.
+        left. apply Hn.
+      + apply H. rewrite /ltl_until_F. 
+        unseal.
+        left. apply Hn.
+    } 
+    intros Φ HP.
+    rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
+    inversion HP; simplify_eq.
+    + apply H. rewrite /ltl_until_F. 
+      unseal. left. apply Hn.
+    + apply H. rewrite /ltl_until_F. 
+      unseal. right.
+      split; [done|].
+      rewrite ltl_next_unseal. econstructor.
+      eapply H0. rewrite /ltl_until_F. unseal. left.
+      apply Hn.
+    + apply H. rewrite /ltl_until_F. 
+      unseal. right.
+      split; [done|].
+      rewrite ltl_next_unseal. econstructor.
+      apply IHn; [apply Hn|].
+      rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.        
+      apply H0.
+  Qed.
+
+  Fixpoint ltl_next_iter (n : nat) (P : tProp) : tProp :=
+    match n with
+    | 0 => P
+    | Datatypes.S n => ○ ltl_next_iter n P
+    end.
+    
+  Lemma ltl_eventually_adequate_2 (P : tProp) :
+    (◊ P)%I ⊢ ∃ n : nat, ltl_next_iter n P.
+  Proof.
+    iApply ltl_eventually_ind.
+    iIntros "!> [HP|(HP&IH)]".
+    { iExists 0. done. }
+    rewrite ltl_next_exists.
+    iDestruct "IH" as (n) "IH".
+    iExists (Datatypes.S n).
+    simpl.
+    iIntros "!>".
+    done.
+  Qed.
+
+  (* TODO: Simplify this lemma *)
+  Lemma ltl_eventually_adequate (P : tProp) tr :
+    (◊ P)%I tr ≡ ∃ n, P (wf_after n tr).
+  Proof.
+    split; [|apply ltl_eventually_adequate_1].
+    intros.    
+    apply ltl_eventually_adequate_2 in H.
+    destruct tr as [tr wf].
+    revert H. unseal. intros H. destruct H as [n Hn].
+    revert tr wf Hn. 
+    induction n; intros tr wf Hn.
+    { simpl in *. exists 0. simpl. eapply Hn. }
+    simpl in *.
+    rewrite ltl_next_adequate in Hn.
+    destruct tr as [[]|].
+    - apply IHn in Hn.
+      destruct Hn as [n' Hn].
+      simpl in *. rewrite /wf_after in Hn. simpl in *.
+      rewrite /wf_after.
+      exists (1+n'). simpl. destruct n'; done.
+    - apply IHn in Hn.
+      destruct Hn as [n' Hn].
+      simpl in *. rewrite /wf_after in Hn. simpl in *.
+      rewrite /wf_after.
+      exists (1+n'). simpl. destruct n'; done.
+    - apply IHn in Hn.
+      destruct Hn as [n' Hn].
+      simpl in *. rewrite /wf_after in Hn. simpl in *.
+      rewrite /wf_after.
+      exists (1+n'). simpl. destruct n'; done.
+  Qed.
+
+End ltl_adequacy.
