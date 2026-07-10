@@ -103,39 +103,67 @@ Section stenning_ex.
   Axiom stenning_safety_inv :
     ⊢ ∃ i stA stB, ↓sA (stA,S i) ∧ (↓sB (stB,S i) ∨ ↓sB (stB,i)).
 
-  (* TODO: Move this; OBS needs to know trace is infinite *)
-  Lemma ltl_lbl : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ l, ↓l l : tProp.
-  Proof.
-    econstructor. unseal. rewrite /ltl_now_state /ltl_now_state_f /ltl_now_label /ltl_now_label_f.
-    rewrite ltl_now_unseal. intros.
-    destruct H; [|done].
-    destruct tr. destruct tr_car.
-    - destruct t.
-      + exfalso. apply empty_ind. inversion tr_wf. simplify_eq.
-        exfalso. destruct s as [[[]] []]; eapply H1; econstructor.
-        instantiate (1:=None). eauto.
-      + inversion H. inversion H0. simplify_eq. econstructor. econstructor. done.
-    - inversion H. inversion H0.
-  Qed.
-
   Lemma stenning_A : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stA, ↓sA stA : tProp.
-  Proof. iDestruct 1 as "[[% H]|[% H]]".
-         - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
-         - iDestruct (ltl_st with "H") as ([]) "H".
-           rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+  Proof.
+    iDestruct 1 as "[[% H]|[% H]]".
+    - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+    - iDestruct (ltl_st with "H") as ([]) "H".
+      { intros [[]|]; naive_solver. }
+      rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
   Qed.
 
   Lemma stenning_B : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stB, ↓sB stB : tProp.
-  Proof. iDestruct 1 as "[[% H]|[% H]]".
-         - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
-         - iDestruct (ltl_st with "H") as ([]) "H".
-           rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+  Proof.
+    iDestruct 1 as "[[% H]|[% H]]".
+    - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+    - iDestruct (ltl_st with "H") as ([]) "H".
+      { intros [[]|]; naive_solver. }
+      rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+  Qed.
+
+  Lemma stenning_st_lbl s : ↓s s ⊢ ∃ l, ↓l l : tProp.
+  Proof.
+    iIntros "Hs".
+    iDestruct (trace_steps with "Hs") as (l s' Hrel) "[Hl Hs']".
+    { apply stenning_reducible. }
+    iFrame.
   Qed.
 
   Lemma stenning_A_or_B : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ↓ll A ∨ ↓ll B.
-  Proof. iIntros "H". iDestruct (ltl_lbl with "H") as ([[]]) "H";
-           rewrite -ltl_now_label_prod_and;
-           iDestruct "H" as "[? ?]"; iFrame.
+  Proof.
+    iDestruct 1 as "[[% H]|[% H]]".
+    - iDestruct (stenning_st_lbl with "H") as (l) "H".
+      iDestruct (ltl_lbl with "H") as ([]) "H".
+      { intros [[?[]]|] H; try naive_solver. }
+      rewrite -ltl_now_label_prod_and.
+      iDestruct "H" as "[? ?]"; iFrame. 
+      destruct a; iFrame.
+    - iDestruct (ltl_lbl with "H") as ([]) "H".
+      { intros [[?[]]|] H; try naive_solver. }
+      rewrite -ltl_now_label_prod_and.
+      iDestruct "H" as "[? ?]"; iFrame. 
+      destruct a; iFrame.
+  Qed.
+
+  Lemma stenning_infinite s : ↓s s ⊢ ∞ : tProp.
+  Proof.
+    iIntros "Hs".
+    iAssert (□ ∃ s, ↓s s ∧ ¬ ↯)%I with "[Hs]" as "#H"; last first.
+    { iIntros "!>". iDestruct "H" as (?) "[_ $]". }
+    iApply ltl_always_intro; last first.
+    { iExists s. iSplit; [done|].
+      iIntros "Hdone".
+      iCombine "Hs Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
+      rewrite ltl_now_adequate.
+      iDestruct "H" as %([[?[]]|]&?&?); naive_solver. }
+    iIntros "!>". clear s. iDestruct 1 as (s) "[Hs _]".
+    iDestruct (trace_steps with "Hs") as (l s' Hrel) "[Hl Hs']".
+    { apply stenning_reducible. }
+    iModIntro. iExists s'. iSplit; [done|].
+    iIntros "Hdone".
+    iCombine "Hs' Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
+    rewrite ltl_now_adequate.
+    iDestruct "H" as %([[?[]]|]&?&?); naive_solver.
   Qed.
 
   Lemma ltl_now_A_agree x y :
