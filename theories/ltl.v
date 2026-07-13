@@ -1577,29 +1577,32 @@ Section ltl_derived_constructs.
     rewrite -bi.or_intro_l. done.
   Qed.
 
-  Lemma ltl_always_eventually_idemp (P : tProp) :
-    (□ ◊ P)%I ≡ (◊ □ ◊ P)%I.
+  Lemma ltl_always_until_idemp (P Q : tProp) :
+    (□ (P ∪ Q))%I ≡ (P ∪ (□ (P ∪ Q)))%I.
   Proof.
     iSplit.
-    { iIntros "H". iEval (rewrite -ltl_eventually_intro_now). done. }
-    iApply ltl_eventually_ind.
-    iIntros "!> [#H|[H IH]]".
-    { iIntros "!>". done. }
-    iEval (rewrite -ltl_next_eventually).
-    rewrite -ltl_always_next_comm. done.
+    { iIntros "H". iEval (rewrite -ltl_until_intro_now). done. }
+    iApply ltl_until_ind.
+    iIntros "!> [H|(HP&H&IH)]".
+    { done. }
+    rewrite -ltl_always_next_comm.
+    iDestruct "IH" as "#IH".
+    iApply ltl_always_intro.
+    { iDestruct "IH" as "#IH". iModIntro. eauto. }
+    iEval (rewrite -ltl_until_intro_next).
+    iFrame. done.
   Qed.
 
-  Global Instance elim_modal_always_until p (P Q : tProp) :
-    ElimModal True p false modality_persistently (◊ Q) Q (□ ◊ P) (□ ◊ P).
+  (* TODO: Delete this (superfluous) lemma? *)
+  Lemma ltl_always_eventually_idemp (P : tProp) :
+    (□ ◊ P)%I ≡ (◊ □ ◊ P)%I.
+  Proof. apply ltl_always_until_idemp. Qed.
+
+  Global Instance ltl_until_equiv_always' (P Q R : tProp) :
+    ltl_until_equiv P Q R →
+    ltl_until_equiv (□ P) Q (□ P) | 1.
   Proof.
-    rewrite /ElimModal.
-    iIntros (_) "[HQ #HP]".
-    destruct p; simpl.
-    - iEval (rewrite ltl_always_eventually_idemp).
-      iDestruct "HQ" as "#HQ". iMod "HQ".
-      iEval (rewrite -ltl_eventually_intro_now). by iApply "HP".
-    - iEval (rewrite ltl_always_eventually_idemp).
-      iMod "HQ". iEval (rewrite -ltl_eventually_intro_now). by iApply "HP".
+    intros. rewrite /ltl_until_equiv. rewrite H. apply ltl_always_until_idemp.
   Qed.
 
   (* TODO: Fiddle with priority order; hangs on priority 0/1 *)
