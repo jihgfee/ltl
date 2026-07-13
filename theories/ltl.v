@@ -1625,58 +1625,55 @@ Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi
 Tactic Notation "iModUnIntro" :=
   iEval (rewrite -ltl_until_intro_now).
 
-Section ltl_adequacy.
+Section after.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
-  Notation tProp := (tProp S L Rel).
 
   Fixpoint after (n: nat) (t: trace S L) : (trace S L):=
-    match n with
-    | 0 => t
-    | Datatypes.S n =>
-        match t with
-        | ⟨ ⟩ => ⟨ ⟩
-        | ⟨ s ⟩ => ⟨ ⟩
-        | (s -[ ℓ ]-> xs) => after n (Some xs)
-        end
+    match n,t with
+    | 0,_ => t
+    | _,⟨ ⟩ => ⟨ ⟩
+    | Datatypes.S n, ⟨ s ⟩ => ⟨ ⟩
+    | Datatypes.S n, (s -[ ℓ ]-> xs) => after n (Some xs)
     end.
 
+  (* Fixpoint after (n: nat) (t: trace S L) : (trace S L):= *)
+  (*   match n with *)
+  (*   | 0 => t *)
+  (*   | Datatypes.S n => *)
+  (*       match t with *)
+  (*       | ⟨ ⟩ => ⟨ ⟩ *)
+  (*       | ⟨ s ⟩ => ⟨ ⟩ *)
+  (*       | (s -[ ℓ ]-> xs) => after n (Some xs) *)
+  (*       end *)
+  (*   end. *)
+
   Lemma after_nil n : after n ⟨⟩ = ⟨⟩.
-  Proof. induction n; [done|]. simpl. done. Qed.
+  Proof. by destruct n. Qed.
 
   Lemma after_singleton n s : after (Datatypes.S n) ⟨ s ⟩ = ⟨⟩.
-  Proof. induction n; [done|]. simpl. done. Qed.
+  Proof. done. Qed.
 
   Lemma after_cons n s l (tr : trace_aux S L) : after (Datatypes.S n) (s -[ l ]-> tr) =  after n (Some tr).
-  Proof. induction n; [done|]. simpl. simpl in *. done. Qed.
-
+  Proof. done. Qed.
 
   Lemma after_sum_comm n m (tr : trace S L) :
     after n (after m tr) = after m (after n tr).
   Proof.
     revert tr m. induction n; intros tr m.
-    { simpl. done. }
+    { done. }
     revert n tr IHn.
     induction m; intros n tr IHn.
-    { simpl. done. }
-    destruct tr as [].
-    - destruct t.
-      + simpl. destruct m; done.
-      + rewrite after_cons.
-        rewrite -IHn. 
-        rewrite IHm; [|done].
-        destruct t.
-        * simpl. rewrite !after_nil. done.
-        * simpl. done. 
-    - simpl. destruct m; done.
+    { done. }
+    destruct tr as [[|s l t]|]; [done| |done].
+    rewrite after_cons.
+    rewrite -IHn.
+    rewrite IHm; [|done].
+    destruct t.
+    + simpl. rewrite !after_nil. done.
+    + simpl. done. 
   Qed.
 
-  Lemma after_foo n s l (tr : trace_aux S L) : after 1 (after n (s -[ l ]-> tr)) = after n (Some tr).
-  Proof.
-    rewrite after_sum_comm.
-    simpl. done.
-  Qed.    
-  
   Lemma after_sum n m (tr : trace S L) :
     after (n+m) tr = after n (after m tr).
   Proof.
@@ -1687,18 +1684,16 @@ Section ltl_adequacy.
     replace (Datatypes.S n) with (n + 1) by lia.
     rewrite IHn.
     f_equiv.
-    destruct tr as [[]|] eqn:Heqn.
-    - simpl. destruct m; done.
-    - rewrite after_cons. 
-      by rewrite after_foo.
+    destruct tr as [[]|].
+    - destruct m; done.
+    - rewrite after_cons. rewrite after_sum_comm. done.
     - simpl. destruct m; done.
   Qed.
 
-  Program Definition wf_after : nat → wf_trace S L Rel → wf_trace S L Rel :=
-    λ n tr, Trace (after n (tr_car tr)) _.
-  Next Obligation.
-    intros.
-    destruct tr as [tr wf]. simpl.
+  Lemma trace_wf_after n tr : trace_maximal Rel tr → trace_maximal Rel (after n tr).
+  Proof.
+    intros wf.
+    (* destruct tr as [tr wf]. simpl. *)
     revert tr wf.
     induction n; intros tr wf.
     { done. }
@@ -1711,6 +1706,26 @@ Section ltl_adequacy.
     - simpl. constructor.
   Qed.
 
+  Definition wf_after : nat → wf_trace S L Rel → wf_trace S L Rel :=
+    λ n tr, Trace (after n (tr_car tr)) (trace_wf_after n (tr_car tr) (tr_wf tr)).
+
+  Lemma wf_after_0 tr : wf_after 0 tr = tr.
+  Proof. by destruct tr. Qed.
+
+  Lemma wf_trace_eq (tr1 tr2 : wf_trace S L Rel) :
+    tr_car tr1 = tr_car tr2 → tr1 = tr2.
+  Proof. intros. destruct tr1, tr2. simpl in *. simplify_eq. done. Qed.
+
+  Lemma wf_after_sum n m tr : wf_after (n+m) tr = wf_after n (wf_after m tr).
+  Proof. apply wf_trace_eq. by apply after_sum. Qed.
+
+End after.
+
+Section ltl_adequacy.
+  Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
+  Notation tProp := (tProp S L Rel).
+
   Import tProp.
 
   Lemma ltl_adequate (P : tProp) :
@@ -1722,13 +1737,8 @@ Section ltl_adequacy.
   Proof.
     rewrite ltl_next_unseal.
     split.
-    - intros.
-      rewrite /wf_after. simpl. by inversion H; simplify_eq.
-    - intros.
-      rewrite /wf_after. simpl. destruct tr as [[[]|]].
-      + by econstructor. 
-      + by econstructor. 
-      + by econstructor. 
+    - intros. by inversion H; simplify_eq.
+    - intros. destruct tr as [[[]|]]; by econstructor.
   Qed.
 
   Lemma ltl_always_adequate (P : tProp) tr :
@@ -1739,10 +1749,9 @@ Section ltl_adequacy.
     - intros.
       revert tr H.
       induction n; intros tr H.
-      { simpl. inversion H; simplify_eq; done. }
+      { by inversion H; simplify_eq. }
       inversion H; simplify_eq; try done.
-      apply IHn in H4. 
-      done.
+      by apply IHn in H4. 
     - intros.
       revert tr H. cofix IH. intros tr H.
       destruct tr as [[[]|]].
@@ -1758,7 +1767,7 @@ Section ltl_adequacy.
      Unshelve. by inversion tr_wf0.
   Qed.
 
-
+  (* TODO: Clean up this proof *)
   Lemma ltl_eventually_adequate_1 (P : tProp) tr :
     (∃ n, P (wf_after n tr)) → (◊ P)%I tr.
   Proof.
@@ -1770,8 +1779,7 @@ Section ltl_adequacy.
     intros.
     destruct H as [n Hn].
     revert tr Hn. induction n; intros tr Hn.
-    { 
-      intros Φ HP.
+    { intros Φ HP.
       rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
       inversion HP; simplify_eq.
       + apply H. rewrite /ltl_until_F. 
@@ -1781,8 +1789,7 @@ Section ltl_adequacy.
         left. apply Hn.
       + apply H. rewrite /ltl_until_F. 
         unseal.
-        left. apply Hn.
-    } 
+        left. apply Hn. } 
     intros Φ HP.
     rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
     inversion HP; simplify_eq.
@@ -1823,36 +1830,23 @@ Section ltl_adequacy.
     done.
   Qed.
 
-  (* TODO: Simplify this lemma *)
   Lemma ltl_eventually_adequate (P : tProp) tr :
     (◊ P)%I tr ≡ ∃ n, P (wf_after n tr).
   Proof.
     split; [|apply ltl_eventually_adequate_1].
-    intros.    
+    intros.
     apply ltl_eventually_adequate_2 in H.
-    destruct tr as [tr wf].
     revert H. unseal. intros H. destruct H as [n Hn].
-    revert tr wf Hn. 
-    induction n; intros tr wf Hn.
-    { simpl in *. exists 0. simpl. eapply Hn. }
+    revert tr Hn.
+    induction n; intros tr Hn.
+    { exists 0. by rewrite wf_after_0. }
     simpl in *.
     rewrite ltl_next_adequate in Hn.
-    destruct tr as [[]|].
-    - apply IHn in Hn.
-      destruct Hn as [n' Hn].
-      simpl in *. rewrite /wf_after in Hn. simpl in *.
-      rewrite /wf_after.
-      exists (1+n'). simpl. destruct n'; done.
-    - apply IHn in Hn.
-      destruct Hn as [n' Hn].
-      simpl in *. rewrite /wf_after in Hn. simpl in *.
-      rewrite /wf_after.
-      exists (1+n'). simpl. destruct n'; done.
-    - apply IHn in Hn.
-      destruct Hn as [n' Hn].
-      simpl in *. rewrite /wf_after in Hn. simpl in *.
-      rewrite /wf_after.
-      exists (1+n'). simpl. destruct n'; done.
+    apply IHn in Hn.
+    destruct Hn as [m Hn].
+    exists (Datatypes.S m).
+    replace (Datatypes.S m) with (m + 1) by lia.
+    rewrite wf_after_sum. done.
   Qed.
 
 End ltl_adequacy.
