@@ -287,7 +287,7 @@ Section advanced_ex.
       iDestruct (step_b with "Hs") as "[Hs|Hs]"; last first.
       { iDestruct "Hs" as "[Hs Hs'']".
         iDestruct (ltl_now_false with "Hl Hs") as "[]".
-        destruct b; intros [] [] HP HQ; by naive_solver. }
+        destruct b; intros [[[] []]|] HP HQ; by naive_solver. }
       iDestruct "Hs" as "[_ Hs'']".
       iApply ltl_until_intro_next. iFrame.
       iModIntro. iApply ltl_until_intro_now. done. }
