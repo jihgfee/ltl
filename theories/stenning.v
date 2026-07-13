@@ -1,4 +1,4 @@
-From ltl Require Import ltl ltl_now classical.
+From ltl Require Import ltl ltl_now ltl_adequacy classical.
 
 Import tProp.
 
@@ -131,12 +131,12 @@ Section stenning_ex.
       iDestruct (ltl_lbl with "H") as ([]) "H".
       { intros [[?[]]|] H; try naive_solver. }
       rewrite -ltl_now_label_prod_and.
-      iDestruct "H" as "[? ?]"; iFrame. 
+      iDestruct "H" as "[? ?]"; iFrame.
       destruct a; iFrame.
     - iDestruct (ltl_lbl with "H") as ([]) "H".
       { intros [[?[]]|] H; try naive_solver. }
       rewrite -ltl_now_label_prod_and.
-      iDestruct "H" as "[? ?]"; iFrame. 
+      iDestruct "H" as "[? ?]"; iFrame.
       destruct a; iFrame.
   Qed.
 
@@ -680,6 +680,24 @@ Section stenning_ex.
     iDestruct (stenning_live i with "H") as ">H".
     iDestruct (stenning_A_send with "H") as ">[_ Hl]".
     iModUnIntro. done.
+  Qed.
+
+  Theorem stenning_live_meta
+    (tr : wf_trace stenning_state stenning_label stenning_trans) i :
+    fst <$> (fst <$> head_trace (tr_car tr)) = Some ((ASending, 0)) →
+    ∃ n, fst <$> (fst <$> head_trace (tr_car (wf_after n tr))) = Some (ASending, i).
+  Proof.
+    pose proof (stenning_live i).
+    assert ((↓sA (ASending, 0))%I tr → (◊ ↓sA (ASending, i))%I tr) as Htr.
+    { by apply ltl_adequate. }
+    rewrite ltl_eventually_adequate in Htr.
+    rewrite /ltl_now_state_A in Htr.
+    rewrite !ltl_now_f_adequate in Htr.
+    intros Htr'.
+    apply Htr in Htr'.
+    destruct Htr' as [n Hn].
+    rewrite ltl_now_f_adequate in Hn.
+    eauto.
   Qed.
 
 End stenning_ex.

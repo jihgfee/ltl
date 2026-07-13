@@ -44,7 +44,7 @@ Section ltl_now_lemmas.
   Proof.
     rewrite ltl_now_unseal. unseal.
     constructor.
-    intros. 
+    intros.
     destruct tr as [[[]|]].
     - econstructor. intros HP. apply H. constructor. done.
     - econstructor. intros HP. apply H. constructor. done.
@@ -75,7 +75,7 @@ Section ltl_now_lemmas.
          - by inversion HQ.
   Qed.
 
-  Lemma ltl_now_adequate (P : option (S * option L) → Prop) :
+  Lemma ltl_now_pure (P : option (S * option L) → Prop) :
     ↓ P ⊢ ∃ osl, ⌜P osl⌝ : tProp.
   Proof.
     rewrite ltl_now_unseal. unseal.
@@ -177,7 +177,7 @@ Section ltl_now_state_label_lemmas.
     intros Hnow. inversion Hnow; simpl in *; simplify_eq.
     { exfalso. apply empty_ind. inversion tr_wf. subst. specialize (H0 l s'). done. }
     clear Hsteps.
-    assert (∃ c', head_trace (Some tr0) = Some c' ∧ Rel s l0 c') as Hwf.
+    assert (∃ c', fst <$> head_trace (Some tr0) = Some c' ∧ Rel s l0 c') as Hwf.
     { destruct tr0.
       { exists s0. split; [done|].
         destruct (decide (Rel s l0 s0)); [done|].
@@ -247,10 +247,10 @@ Section ltl_now_state_label_lemmas.
       iExists s.
       iSplit; last first.
       { iApply (ltl_now_mono with "H"). intros. destruct H. done. }
-      iDestruct (ltl_now_adequate with "H") as %([[]|]&?&H); by simplify_eq.
+      iDestruct (ltl_now_pure with "H") as %([[]|]&?&H); by simplify_eq.
     - iDestruct 1 as (s Heq) "H".
       subst.
-      iApply (ltl_now_mono with "H"). intros. subst. 
+      iApply (ltl_now_mono with "H"). intros. subst.
       destruct osl as [[]|]; by simplify_eq.
   Qed.
 
@@ -267,7 +267,7 @@ Section ltl_now_state_label_lemmas.
       iExists l.
       iSplit; last first.
       { iApply (ltl_now_mono with "H"). intros. destruct H. done. }
-      iDestruct (ltl_now_adequate with "H") as %([[?[]]|]&?&H); simplify_eq; by naive_solver.
+      iDestruct (ltl_now_pure with "H") as %([[?[]]|]&?&H); simplify_eq; by naive_solver.
     - iDestruct 1 as (l <-) "H".
       iApply (ltl_now_mono with "H"). intros.
       destruct osl as [[?[]]|]; simplify_eq; by naive_solver.
@@ -282,14 +282,14 @@ Section ltl_now_state_label_lemmas.
     { iExists s. iSplit; [done|].
       iIntros "Hdone".
       iCombine "Hs Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
-      rewrite ltl_now_adequate.
+      rewrite ltl_now_pure.
       iDestruct "H" as %([[?[]]|]&?&?); naive_solver. }
     iIntros "!>". clear s. iDestruct 1 as (s) "[Hs _]".
     iDestruct (trace_steps with "Hs") as (l s' Hrel) "[Hl Hs']"; [done|].
     iModIntro. iExists s'. iSplit; [done|].
     iIntros "Hdone".
     iCombine "Hs' Hdone" as "H". rewrite bi_sep_and. rewrite ltl_now_and.
-    rewrite ltl_now_adequate.
+    rewrite ltl_now_pure.
     iDestruct "H" as %([[?[]]|]&?&?); naive_solver.
   Qed.
 
