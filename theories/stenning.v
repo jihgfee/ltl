@@ -700,4 +700,24 @@ Section stenning_ex.
     eauto.
   Qed.
 
+  Theorem stenning_live_label_meta
+    (tr : wf_trace stenning_state stenning_label stenning_trans) i :
+    fst <$> (fst <$> head_trace (tr_car tr)) = Some ((ASending, 0)) →
+    ∃ n, mjoin (snd <$> head_trace (tr_car (wf_after n tr))) = Some (A, Send (mAB i)).
+  Proof.
+    pose proof (stenning_live_label i).
+    assert ((↓sA (ASending, 0))%I tr → (◊ (↓l (A, Send (mAB i))))%I tr) as Htr.
+    { by apply ltl_adequate. }
+    rewrite ltl_eventually_adequate in Htr.
+    rewrite /ltl_now_state_A in Htr.
+    rewrite !ltl_now_f_adequate in Htr.
+    intros Htr'.
+    apply Htr in Htr'.
+    destruct Htr' as [n Hn].
+    rewrite /ltl_now_label in Hn.
+    rewrite ltl_now_label_f_adequate in Hn.
+    rewrite option_fmap_id in Hn.
+    eauto.
+  Qed.
+
 End stenning_ex.
