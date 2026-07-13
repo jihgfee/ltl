@@ -113,7 +113,7 @@ Section ltl_now_state_label.
     ↓ (λ osl, osl = None).
 
   Definition ltl_infinite : tProp :=
-    □ ¬ ltl_terminated.
+    □ (¬ ltl_terminated).
 
 End ltl_now_state_label.
 
@@ -126,11 +126,11 @@ Arguments ltl_terminated {_ _ _} : simpl never.
 Notation "↓s st" := (ltl_now_state st) (at level 20, right associativity) : bi_scope.
 Notation "↓l lbl" := (ltl_now_label lbl)%I (at level 20, right associativity) : bi_scope.
 
-Notation "↓fs" := (ltl_now_state_f) (at level 20) : bi_scope.
-Notation "↓fl" := (ltl_now_label_f) (at level 20) : bi_scope.
+Notation "↓fs" := (ltl_now_state_f) (at level 0) : bi_scope.
+Notation "↓fl" := (ltl_now_label_f) (at level 0) : bi_scope.
 
-Notation "↯" := (ltl_terminated) (at level 20) : bi_scope.
-Notation "∞" := (ltl_infinite) (at level 20) : bi_scope.
+Notation "↯" := (ltl_terminated) (at level 0) : bi_scope.
+Notation "∞" := (ltl_infinite) (at level 0) : bi_scope.
 
 Inductive empty : SProp := .
 

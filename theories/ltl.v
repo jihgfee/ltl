@@ -804,7 +804,7 @@ Section ltl_lemmas.
   Qed.
 
   Lemma ltl_next_not (P : tProp) :
-    ¬ ○ P ⊣⊢ ○ ¬ P.
+    ¬ ○ P ⊣⊢ ○ (¬ P).
   Proof.
     split. intros tr. unseal. ltl_unseal.
     split.
@@ -1477,7 +1477,7 @@ Section ltl_derived_constructs.
   Qed.
 
   Lemma ltl_not_eventually_always_not (P : tProp) :
-    (¬ ◊ P)%I ⊢ □ ¬ P.
+    ¬ ◊ P ⊢ □ (¬ P).
   Proof.
     iIntros "H".
     iAssert (□ ((¬ ◊ P) ∧ (¬ P)))%I with "[H]" as "#[H1 H2]"; last first.

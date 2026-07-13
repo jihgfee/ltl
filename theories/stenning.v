@@ -366,7 +366,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A_always_send i :
-    (□ ¬ ↓sA (ASending, S i)) ∧
+    (□ (¬ ↓sA (ASending, S i))) ∧
     ↓sA (ASending, i) ⊢ □ ◊ (↓sA (ASending, i) ∧ ↓l (A, Send (mAB i))) : tProp.
   Proof.
     iIntros "[#Hm Hs]".
@@ -416,7 +416,7 @@ Section stenning_ex.
   Qed.
 
   Lemma stenning_A_always_try_recv i :
-    (□ ¬ ↓sA (ASending, S i)) ∧ ↓sA (ASending, i)
+    (□ (¬ ↓sA (ASending, S i))) ∧ ↓sA (ASending, i)
     ⊢ □ ◊ ∃ om : option Message, ↓sA ((AReceiving, i)) ∧ ↓l (A, Recv A om)
     : tProp.
   Proof.
@@ -639,7 +639,7 @@ Section stenning_ex.
     ↓sA ((ASending, i)) ⊢ ◊ ↓sA ((ASending, S i)) : tProp.
   Proof.
     iIntros "HA".
-    iAssert (◊ ↓sA (ASending, S i) ∨ □ ¬ ↓sA (ASending, S i))%I as "[$|#Hm]".
+    iAssert (◊ ↓sA (ASending, S i) ∨ □ (¬ ↓sA (ASending, S i)))%I as "[$|#Hm]".
     { iDestruct (ltl_excluded_middle (◊ ↓sA (ASending, S i))) as "[H|H]".
       { by iLeft. }
       iRight. by iApply ltl_not_eventually_always_not. }
