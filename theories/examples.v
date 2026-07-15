@@ -41,7 +41,7 @@ Section examples.
     ⊢ □ P → ◊ Q → P ∪ Q.
   Proof.
     iIntros "#HP HQ".
-    iApply (ltl_eventually_ind with "[] HQ").
+    iApply (ltl_eventually_ind_strong with "[] HQ").
     iIntros "!> [HQ|[H IH]]".
     { iModUnIntro. iFrame. }
     iEval (rewrite ltl_until_unfold).
@@ -54,7 +54,7 @@ Section examples.
     iIntros "#HPQ #HQP HR HP".
     iAssert (P ∨ Q)%I with "[$HP]" as "HP".
     iRevert "HP".
-    iApply (ltl_eventually_ind with "[] HR").
+    iApply (ltl_eventually_ind_strong with "[] HR").
     iIntros "!> [HQ|[H IH]] HP".
     { iModUnIntro. iFrame. }
     iEval (rewrite ltl_until_unfold).
@@ -280,7 +280,7 @@ Section advanced_ex.
     { by iApply (ltl_until_mono_strong with "[] [] H"); eauto. }
     iRevert "Hs".
     iDestruct (fair b) as "-#Hfair".
-    iApply (ltl_eventually_ind with "[] Hfair").
+    iApply (ltl_eventually_ind_strong with "[] Hfair").
     iIntros "!> [Hl|H]".
     { iIntros "Hs".
       iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
@@ -311,7 +311,7 @@ Section advanced_ex.
     iIntros "Hi".
     iDestruct (ltl_now_prod_fst with "Hi") as (b) "Hs".
     iDestruct (eventually_incr with "Hs") as "H'".
-    iApply (ltl_eventually_ind with "[] H'").
+    iApply (ltl_eventually_ind_strong with "[] H'").
     iIntros "!> [H|(H3&H2)]".
     { iApply "IHj".
       { instantiate (1:=i+1). rewrite -H1. iPureIntro. lia. }

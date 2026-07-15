@@ -259,7 +259,7 @@ Section stenning_ex.
     ↓sA stA ⊢ ◊ (↓sA stA ∧ ↓ll A).
   Proof.
     iDestruct (fair_sched A) as "Hl".
-    iApply (ltl_eventually_ind with "[] Hl").
+    iApply (ltl_eventually_ind_strong with "[] Hl").
     iIntros "!> [H|[H IH]] Hs".
     { iModUnIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
@@ -275,7 +275,7 @@ Section stenning_ex.
     ↓sB stB ⊢ ◊ (↓sB stB ∧ ↓ll B).
   Proof.
     iDestruct (fair_sched B) as "Hl".
-    iApply (ltl_eventually_ind with "[] Hl").
+    iApply (ltl_eventually_ind_strong with "[] Hl").
     iIntros "!> [H|[H IH]] Hs".
     { iModUnIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
@@ -292,7 +292,7 @@ Section stenning_ex.
     iIntros "Hs".
     iDestruct (fair_sched A) as "H".
     iRevert "Hs".
-    iApply (ltl_eventually_ind with "[] H").
+    iApply (ltl_eventually_ind_strong with "[] H").
     iIntros "!> [H1|H2]".
     { iIntros "H'". iDestruct "H1" as "HA".
       iDestruct (ltl_dup with "H'") as "[H' H'']".
@@ -332,7 +332,7 @@ Section stenning_ex.
     { eauto. }
     rewrite {1}Heq. clear Heq.
     iIntros "[Hs Hl]". iRevert (stA) "Hs".
-    iApply (ltl_eventually_ind with "[] Hl").
+    iApply (ltl_eventually_ind_strong with "[] Hl").
     iIntros "!> [Hl|H]"; iIntros (stA) "Hs".
     { destruct stA.
       - rewrite -ltl_eventually_next.
@@ -398,7 +398,7 @@ Section stenning_ex.
     iEval (rewrite -ltl_next_eventually). iModIntro.
     iDestruct (fair_sched A) as "H".
     iRevert "Hs".
-    iApply (ltl_eventually_ind with "[] H").
+    iApply (ltl_eventually_ind_strong with "[] H").
     iIntros "!> [Hl|[_ IH]] Hs".
     { iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
       iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m) "[(?&?&?)|(?&?&?)]".

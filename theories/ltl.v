@@ -1432,7 +1432,7 @@ Section ltl_derived_constructs.
     (P ∪ Q) ⊢ (◊ Q).
   Proof. apply ltl_until_mono; by eauto. Qed.
 
-  Lemma ltl_eventually_ind (P Q : tProp) :
+  Lemma ltl_eventually_ind_strong (P Q : tProp) :
     (□ (P ∨ ○ ◊ P ∧ ○ Q → Q)) ⊢ ◊ P → Q.
   Proof.
     iIntros "#H". iApply ltl_until_ind_strong.
@@ -1441,13 +1441,13 @@ Section ltl_derived_constructs.
     iApply "H". iRight. iDestruct "HP" as "[_ $]".
   Qed.
 
-  Lemma ltl_eventually_ind_alt (P Q : tProp) :
+  Lemma ltl_eventually_ind (P Q : tProp) :
     (P ⊢ Q) →
     ((○ ◊ P) ∧ ○ Q ⊢ Q) →
     ◊ P ⊢ Q.
   Proof.
     intros H1 H2.
-    iApply ltl_eventually_ind.
+    iApply ltl_eventually_ind_strong.
     iDestruct H1 as "#H1".
     iDestruct H2 as "#H2".
     iModIntro. iIntros "[HP|HP]"; [by iApply "H1"|by iApply "H2"].
@@ -1461,7 +1461,7 @@ Section ltl_derived_constructs.
     (□ P ∧ ◊Q) ⊢ (◊ (Q ∧ □ P)).
   Proof.
     iIntros "[#HP HQ]".
-    iApply (ltl_eventually_ind with "[] HQ").
+    iApply (ltl_eventually_ind_strong with "[] HQ").
     iIntros "!> [HQ|H]".
     { iApply ltl_eventually_intro_now. iFrame "#∗". }
     iEval (rewrite -ltl_eventually_idemp).

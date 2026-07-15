@@ -185,8 +185,8 @@ Section ltl_adequacy.
     (◊ P)%I ⊢ ∃ n : nat, ltl_next_iter n P.
   Proof.
     iApply ltl_eventually_ind.
-    iIntros "!> [HP|(HP&IH)]".
-    { iExists 0. done. }
+    { iIntros "HP". iExists 0. done. }
+    iIntros "[HP IH]".
     rewrite ltl_next_exists.
     iDestruct "IH" as (n) "IH".
     iExists (Datatypes.S n).
