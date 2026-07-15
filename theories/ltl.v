@@ -322,7 +322,7 @@ End ltl_primitive.
 
 Import ltl_primitive.
 
-Section ltl_always.
+Section ltl_always_constructor.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
 
@@ -338,15 +338,32 @@ Section ltl_always.
   Definition ltl_always_unseal :
     @ltl_always = @ltl_always_def := seal_eq ltl_always_aux.
 
+End ltl_always_constructor.
+
+Section ltl_always_lemmas.
+  Context {S L : Type}.
+  Context {Rel : S → L → S → Prop}.
+
+  Notation tProp := (tProp S L Rel).
+  Implicit Type P Q : tProp.
+
+  Definition ltl_unseal :=
+    (@ltl_pure_unseal S L Rel, @ltl_and_unseal S L Rel, @ltl_or_unseal S L Rel,
+       @ltl_impl_unseal S L Rel, @ltl_forall_unseal S L Rel, @ltl_exist_unseal S L Rel,
+         @ltl_later_unseal S L Rel, @ltl_internal_eq_unseal S L Rel,
+           @ltl_always_unseal S L Rel).
+
+  Ltac unseal := rewrite !ltl_unseal /=.
+
   Instance ne_proper (f : tProp → tProp) `{!Proper ((≡) ==> (≡)) f} : NonExpansive f.
   Proof.
     constructor. intros.
     apply Proper0. done.
   Qed.
 
-  Lemma ltl_always_ne : NonExpansive ltl_always.
+  Lemma ltl_always_ne : NonExpansive (@ltl_always S L Rel).
   Proof.
-    apply ne_proper. rewrite ltl_always_unseal.
+    apply ne_proper. unseal.
     constructor.
     intros.
     constructor.
@@ -375,7 +392,7 @@ Section ltl_always.
   Lemma ltl_always_mono (P Q : tProp) :
     (ltl_entails P Q)%I → ltl_entails (ltl_always P) (ltl_always Q).
   Proof.
-    rewrite ltl_always_unseal.
+    unseal.
     intros. constructor. intros.
     revert tr H0.
     cofix IH.
@@ -390,10 +407,63 @@ Section ltl_always.
       * by apply IH.
   Qed.
 
+  Lemma ltl_always_emp :
+    ltl_entails (ltl_pure True) (ltl_always (ltl_pure True) : tProp).
+  Proof.
+    unseal.
+    econstructor. intros.
+    revert tr H.
+    cofix IH.
+    intros tr Htr.
+    destruct tr as [[[]|] ?].
+    { by econstructor. }
+    + econstructor. done. apply IH. done.
+    + econstructor. done.
+    Unshelve. all: try econstructor. all: by inversion tr_wf0.
+  Qed.
+
+  Lemma ltl_always_and (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) (ltl_always Q)) (ltl_always (ltl_and P Q)).
+  Proof.
+    unseal.
+    econstructor. intros.
+    revert tr H.
+    cofix IH.
+    intros tr Htr.
+    inversion Htr.
+    inversion H; simplify_eq.
+    { inversion H0; simplify_eq. econstructor. split; done. }
+    { inversion H0; simplify_eq. econstructor; split; done. }
+    inversion H0; simplify_eq. econstructor.
+    + done.
+    + apply IH. split; done.
+  Qed.
+
+  Lemma ltl_always_affine (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) Q) (ltl_always P).
+  Proof.
+    unseal.
+    intros.
+    constructor. intros.
+    destruct H. done.
+  Qed.
+
+  Lemma ltl_always_sep_and (P Q : tProp) :
+    ltl_entails (ltl_and (ltl_always P) Q) (ltl_and P Q).
+  Proof.
+    unseal.
+    intros. constructor. intros. destruct H.
+    split.
+    + by inversion H.
+    + done.
+  Qed.
+
+  (* OBS: This can be derived, but it is a bit cumbersome *)
   Lemma ltl_always_idemp (P : tProp) :
     ltl_entails (ltl_always P) (ltl_always (ltl_always P)).
   Proof.
-    intros. constructor. rewrite ltl_always_unseal.
+    unseal.
+    intros. constructor.
     cofix IH.
     intros tr Htr.
     inversion Htr; simplify_eq.
@@ -407,55 +477,7 @@ Section ltl_always.
     Unshelve. done.
   Qed.
 
-  Lemma ltl_always_emp :
-    ltl_entails (ltl_pure True) (ltl_always (ltl_pure True)).
-  Proof.
-    rewrite ltl_always_unseal. econstructor. intros.
-    revert tr H.
-    cofix IH.
-    intros tr Htr.
-    destruct tr as [[[]|] ?].
-    { econstructor. done. simpl. simpl. rewrite ltl_pure_unseal. done. }
-    + econstructor. done. apply IH. rewrite ltl_pure_unseal. done.
-    + econstructor. done.
-    Unshelve. all: try econstructor. all: by inversion tr_wf0.
-  Qed.
-
-  Lemma ltl_always_and (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) (ltl_always Q)) (ltl_always (ltl_and P Q)).
-  Proof.
-    intros.
-    rewrite ltl_always_unseal. econstructor. intros.
-    revert tr H.
-    cofix IH.
-    intros tr Htr.
-    rewrite ltl_and_unseal in Htr. inversion Htr.
-    inversion H; simplify_eq.
-    { inversion H0; simplify_eq. econstructor. rewrite ltl_and_unseal. split; done. }
-    { inversion H0; simplify_eq. econstructor; rewrite ltl_and_unseal; split; done. }
-    inversion H0; simplify_eq. econstructor.
-    + rewrite ltl_and_unseal. done.
-    + apply IH. rewrite ltl_and_unseal. split; done.
-  Qed.
-
-  Lemma ltl_always_affine (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) Q) (ltl_always P).
-  Proof.
-    intros.
-    constructor. intros. rewrite ltl_and_unseal in H.
-    destruct H. done.
-  Qed.
-
-  Lemma ltl_always_sep_and (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) Q) (ltl_and P Q).
-  Proof.
-    intros. constructor. intros. rewrite ltl_and_unseal in H. destruct H.
-    rewrite ltl_and_unseal. split.
-    + rewrite ltl_always_unseal in H. by inversion H.
-    + done.
-  Qed.
-
-End ltl_always.
+End ltl_always_lemmas.
 
 Section ltl.
   Context {S L : Type}.
@@ -650,7 +672,7 @@ End restate.
 Ltac unseal := rewrite !ltl_unseal /=.
 End tProp.
 
-Section ltl_primitives.
+Section ltl_next_constructor.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
 
@@ -667,7 +689,7 @@ Section ltl_primitives.
   Definition ltl_next_unseal :
     @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
 
-End ltl_primitives.
+End ltl_next_constructor.
 
 Global Instance: Params (@ltl_next) 2 := {}.
 
@@ -705,7 +727,7 @@ Section ltl_lemmas.
     (@ltl_pure_unseal S L, @ltl_and_unseal S L, @ltl_or_unseal S L,
        @ltl_impl_unseal S L, @ltl_forall_unseal S L, @ltl_exist_unseal S L,
          @ltl_later_unseal S L, @ltl_internal_eq_unseal S L,
-    @ltl_next_unseal S L, (* @ltl_now_unseal S L,  *)@ltl_always_unseal S L).
+    @ltl_next_unseal S L, @ltl_always_unseal S L).
 
   Ltac ltl_unseal := rewrite !ltl_unseal' /=.
 
@@ -891,6 +913,10 @@ Section ltl_derived_rules.
     apply HP.
   Qed.
 
+  Lemma ltl_always_elim (P : tProp) :
+    □ P ⊢ P.
+  Proof. rewrite ltl_always_unfold. iIntros "[$ _]". Qed.
+
   (* Actual A1 / K□ *)
   Lemma ltl_always_mono_strong (P Q : tProp) :
     □ (P → Q) ⊢ □ P → □ Q.
@@ -899,6 +925,16 @@ Section ltl_derived_rules.
     rewrite -bi.intuitionistically_and.
     apply bi.intuitionistically_mono'.
     apply bi.impl_elim_l.
+  Qed.
+
+  (* We include this to show it can be derived from axioms, instead of being an axiom *)
+  Lemma ltl_always_idemp' (P : tProp) :
+    □ P ⊢ □ □ P.
+  Proof.
+    iApply ltl_always_intro.
+    iIntros "!> HP".
+    rewrite {1}ltl_always_unfold.
+    iDestruct "HP" as "[_ $]".
   Qed.
 
   (* Next *)
