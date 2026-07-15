@@ -487,7 +487,7 @@ Section stenning_ex.
     - iDestruct (ltl_until_not_until with "Hrecv") as "Hrecv'".
       rewrite left_id.
       iRevert "Hs". iRevert (stB).
-      iApply (ltl_until_ind with "[] Hrecv'").
+      iApply (ltl_until_ind_strong with "[] Hrecv'").
       iIntros "!> [Hl|(Hl&H&IH)]"; iIntros (stB) "Hs".
       { destruct stB.
         { iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
@@ -557,7 +557,7 @@ Section stenning_ex.
     - iDestruct (ltl_until_not_until with "Hrecv") as "Hrecv'".
       rewrite left_id.
       iRevert "Hs". iRevert (stB).
-      iApply (ltl_until_ind with "[] Hrecv'").
+      iApply (ltl_until_ind_strong with "[] Hrecv'").
       iIntros "!> [Hl|(Hl&H&IH)]"; iIntros (stB) "Hs".
       { destruct stB.
         - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".

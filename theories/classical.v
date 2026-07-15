@@ -43,7 +43,7 @@ Section classical.
       iEval (rewrite ltl_until_unfold).
       iLeft. done. }
     iIntros "H". iRevert "HQ".    
-    iApply (ltl_until_ind with "[] H").
+    iApply (ltl_until_ind_strong with "[] H").
     iIntros "!> [HQ|(HP&HPQ&IH)] HQ'".
     { by rewrite -ltl_until_intro_now. }
     iEval (rewrite ltl_until_unfold).

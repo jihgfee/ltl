@@ -31,7 +31,7 @@ Section examples.
     ⊢ □ (R → P' ∪ Q) → □ (P → P') → (○ P ∪ ○ R) → ◊ ○ R → ○ (P' ∪ Q).
   Proof.
     iIntros "#HPQ #HP' HP HR".
-    iDestruct (ltl_until_mono _ (○ P') _ (○ R) with "[] [] HP") as "HP".
+    iDestruct (ltl_until_mono_strong _ (○ P') _ (○ R) with "[] [] HP") as "HP".
     { iIntros "!>HP!>". by iApply "HP'". }
     { eauto. }
     iMod "HP". iModIntro. by iApply "HPQ".
@@ -277,7 +277,7 @@ Section advanced_ex.
   Proof.
     iIntros "Hs".
     iAssert (↓s (i,b) ∪ ↓s (i+1,negb b))%I with "[Hs]" as "H"; last first.
-    { by iApply (ltl_until_mono with "[] [] H"); eauto. }
+    { by iApply (ltl_until_mono_strong with "[] [] H"); eauto. }
     iRevert "Hs".
     iDestruct (fair b) as "-#Hfair".
     iApply (ltl_eventually_ind with "[] Hfair").

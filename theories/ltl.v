@@ -798,7 +798,7 @@ Section ltl_lemmas.
 
   (* N○ *)
   Lemma ltl_next_emp :
-    ⊢ ○ True : tProp.
+    True ⊢ ○ True : tProp.
   Proof.
     constructor.
     intros tr _.
@@ -837,15 +837,6 @@ Section ltl_lemmas.
     inversion HP; simplify_eq; econstructor; apply H; try naive_solver.
   Qed.
 
-  (* N○ *)
-  Lemma ltl_next_taut (P : tProp) :
-    (⊢ P) → (⊢ ○ P).
-  Proof.
-    intros HP.
-    rewrite /bi_emp_valid. rewrite ltl_next_emp. apply ltl_next_mono.
-    done.
-  Qed.
-
   (* TODO: Can we derive this somehow? *)
   Lemma ltl_false_next :
     ○ False ⊢ False : tProp.
@@ -864,17 +855,6 @@ Section ltl_lemmas.
     constructor. ltl_unseal. unseal.
     intros [tr wf] [HP HQ].
     inversion HP; inversion HQ; simplify_eq; econstructor; split; try naive_solver.
-  Qed.
-
-  (* TODO: Unclear if we cannot derive this, but odes not seem derivable without EM. *)
-  Lemma ltl_next_or_2 (P Q : tProp) :
-    ○ (P ∨ Q) ⊢ (○ P) ∨ (○ Q).
-  Proof.
-    ltl_unseal. unseal. constructor.
-    intros tr. inversion 1; simplify_eq.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
   Qed.
 
   (* TODO: Unclear if we cannot derive this, but odes not seem derivable without EM. *)
@@ -923,6 +903,15 @@ Section ltl_derived_rules.
 
   (* Next *)
 
+  (* Actual N○ - included for completeness *)
+  Lemma ltl_next_taut (P : tProp) :
+    (⊢ P) → (⊢ ○ P).
+  Proof.
+    intros HP.
+    rewrite /bi_emp_valid. rewrite -bi.True_emp ltl_next_emp. apply ltl_next_mono.
+    done.
+  Qed.
+
   Lemma ltl_always_next (P : tProp) :
     □ P ⊢ ○ □ P.
   Proof. rewrite {1}ltl_always_unfold. apply bi.and_elim_r. Qed.
@@ -942,6 +931,17 @@ Section ltl_derived_rules.
     rewrite ltl_next_and.
     apply ltl_next_mono.
     apply bi.impl_elim_l.
+  Qed.
+
+  Lemma ltl_next_or_2 (P Q : tProp) :
+    ○ (P ∨ Q) ⊢ (○ P) ∨ (○ Q).
+  Proof.
+    iIntros "HPQ".
+    iAssert (○ ∃ (b:bool), if b then P else Q)%I with "[HPQ]" as "H".
+    { iApply (ltl_next_mono with "HPQ").
+      iDestruct 1 as "[HP|HQ]"; [by iExists true|by iExists false]. }
+    rewrite ltl_next_exists.
+    iDestruct "H" as ([]) "H"; iFrame.
   Qed.
 
   Lemma ltl_next_or (P Q : tProp) :
@@ -989,11 +989,11 @@ Section ltl_derived_rules.
     (□ P ∧ ○ Q) ⊢ (○ (Q ∧ □ P)).
   Proof. by rewrite bi.and_comm {1}ltl_always_next ltl_next_and. Qed.
 
+  (** Proofmode stuff *)
+
   Lemma ltl_sep_and (P Q : tProp) :
     P ∗ Q ⊣⊢ P ∧ Q.
   Proof. done. Qed.
-
-  (** Proofmode stuff *)
 
 End ltl_derived_rules.
 
@@ -1158,9 +1158,9 @@ Section ltl_derived_constructs.
     Q ∨ P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
   Proof. rewrite {2}ltl_until_unfold. done. Qed.
 
-  Lemma ltl_until_ind P Q R :
-    □ (Q ∨ (P ∧ ○ (P ∪ Q) ∧ ○ R) -∗ R) -∗
-    P ∪ Q -∗ R.
+  Lemma ltl_until_ind_strong (P Q R : tProp) :
+    □ (Q ∨ (P ∧ ○ (P ∪ Q) ∧ ○ R) → R) ⊢
+    P ∪ Q → R.
   Proof.
     iIntros "#IH HPQ".
     rewrite ltl_until_unseal.
@@ -1173,12 +1173,28 @@ Section ltl_derived_constructs.
     - iModIntro. iDestruct "HR" as "[$ _]".
   Qed.
 
-  Lemma ltl_until_mono P1 P2 Q1 Q2 :
+  Lemma ltl_until_ind (P Q R : tProp) :
+    (Q ∨ (P ∧ ○ (P ∪ Q) ∧ ○ R) ⊢ R) →
+    (P ∪ Q ⊢ R).
+  Proof.
+    intros IH.
+    iApply ltl_until_ind_strong. iIntros "!> H". iApply IH. done.
+  Qed.
+
+  Lemma ltl_until_intro_now (P Q : tProp) :
+    Q ⊢ P ∪ Q.
+  Proof. rewrite -ltl_until_intro. apply bi.or_intro_l. Qed.
+
+  Lemma ltl_until_intro_next (P Q : tProp) :
+    P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
+  Proof. rewrite -{2}ltl_until_intro. apply bi.or_intro_r. Qed.
+
+  Lemma ltl_until_mono_strong P1 P2 Q1 Q2 :
     □ (P1 → P2) ⊢ □ (Q1 → Q2) →
     P1 ∪ Q1 → P2 ∪ Q2.
   Proof.
     iIntros "#HP #HQ HPQ".
-    iApply (ltl_until_ind with "[] HPQ").
+    iApply (ltl_until_ind_strong with "[] HPQ").
     iModIntro.
     iDestruct 1 as "[H|H]".
     { rewrite ltl_until_unfold. iLeft. by iApply "HQ". }
@@ -1189,30 +1205,14 @@ Section ltl_derived_constructs.
     - iDestruct "IH" as "[_ $]".
   Qed.
 
-  Lemma ltl_until_mono_alt P1 P2 Q1 Q2 :
+  Lemma ltl_until_mono P1 P2 Q1 Q2 :
     (P1 ⊢ P2) → (Q1 ⊢ Q2) →
     P1 ∪ Q1 ⊢ P2 ∪ Q2.
   Proof.
     intros HP HQ.
-    iApply ltl_until_mono.
+    iApply ltl_until_mono_strong.
     iApply HP.
     iApply HQ.
-  Qed.
-
-  Lemma ltl_until_mono_alt' P1 P2 Q1 Q2 :
-    □ (P1 → P2) ∧ □ (Q1 → Q2) ⊢
-    P1 ∪ Q1 → P2 ∪ Q2.
-  Proof.
-    iIntros "[#HP #HQ] HPQ".
-    iApply (ltl_until_ind with "[] HPQ").
-    iModIntro.
-    iDestruct 1 as "[H|H]".
-    { rewrite ltl_until_unfold. iLeft. by iApply "HQ". }
-    iEval (rewrite ltl_until_unfold). iRight.
-    iDestruct "H" as "[H IH]".
-    iSplit.
-    - by iApply "HP".
-    - iDestruct "IH" as "[_ $]".
   Qed.
 
   Lemma ltl_until_and (P Q1 Q2 : tProp) :
@@ -1227,21 +1227,35 @@ Section ltl_derived_constructs.
     iSplit.
     - iEval (rewrite ltl_until_unfold).
       iRight. iDestruct "H" as "[$ H]".
-      iModIntro. iApply (ltl_until_mono with "[] [] H").
+      iModIntro. iApply (ltl_until_mono_strong with "[] [] H").
       + eauto.
       + iIntros "!>[$ _]".
     - iEval (rewrite ltl_until_unfold).
       iRight. iDestruct "H" as "[$ H]".
-      iModIntro. iApply (ltl_until_mono with "[] [] H").
+      iModIntro. iApply (ltl_until_mono_strong with "[] [] H").
       + eauto.
       + iIntros "!>[_ $]".
+  Qed.
+
+  Lemma ltl_until_always_combine (P Q R : tProp) :
+    (□ P ∧ Q ∪ R) ⊢ (((Q ∧ □ P) ∪ (R ∧ □ P))).
+  Proof.
+    iIntros "[#HP HQ]".
+    iApply (ltl_until_ind_strong with "[] HQ").
+    iIntros "!> [HQ|H]".
+    { iApply ltl_until_intro_now. iFrame "#∗". }
+    iEval (rewrite -ltl_until_intro_next).
+    iDestruct "H" as "[$ H]".
+    iSplit; [done|].
+    iModIntro.
+    iDestruct "H" as "[_ $]".
   Qed.
 
   Lemma ltl_until_next_comm (P Q : tProp) :
     (○ P ∪ ○ Q) ⊣⊢ ○ (P ∪ Q).
   Proof.
     iSplit.
-    - iApply ltl_until_ind.
+    - iApply ltl_until_ind_strong.
       iIntros "!>H".
       iDestruct "H" as "[HQ|H]".
       + iModIntro. rewrite ltl_until_unfold. by iLeft.
@@ -1252,7 +1266,7 @@ Section ltl_derived_constructs.
       rewrite ltl_next_and.
       iEval (rewrite (ltl_next_or Q)).
       iModIntro.
-      iApply (ltl_until_ind with "[] H").
+      iApply (ltl_until_ind_strong with "[] H").
       iIntros "!>H".
       iDestruct "H" as "[H|H]".
       { iLeft. done. }
@@ -1271,35 +1285,14 @@ Section ltl_derived_constructs.
     (P ∪ (P ∪ Q)) ⊣⊢ (P ∪ Q).
   Proof.
     iSplit.
-    - iApply ltl_until_ind.
+    - iApply ltl_until_ind_strong.
       iIntros "!> [H|(?&?&?)]".
       { done. }
       iEval (rewrite ltl_until_unfold). iRight. iFrame.
-    - iApply ltl_until_ind.
+    - iApply ltl_until_ind_strong.
       iIntros "!> [H|(?&?&?)]".
       { rewrite ltl_until_unfold. iLeft. rewrite ltl_until_unfold. iLeft. done. }
       iEval (rewrite ltl_until_unfold). iRight. iFrame.
-  Qed.
-
-  Lemma ltl_until_intro_now (P Q : tProp) :
-    Q ⊢ P ∪ Q.
-  Proof. rewrite -ltl_until_intro. apply bi.or_intro_l. Qed.
-
-  Lemma ltl_until_intro_next (P Q : tProp) :
-    P ∧ ○ (P ∪ Q) ⊢ P ∪ Q.
-  Proof. rewrite -{2}ltl_until_intro. apply bi.or_intro_r. Qed.
-
-  Lemma ltl_until_always_combine (P Q R : tProp) :
-    (□ P ∧ Q ∪ R) ⊢ ((Q ∪ (R ∧ □ P))).
-  Proof.
-    iIntros "[#HP HQ]".
-    iApply (ltl_until_ind with "[] HQ").
-    iIntros "!> [HQ|H]".
-    { iApply ltl_until_intro_now. iFrame "#∗". }
-    iEval (rewrite -ltl_until_intro_next).
-    iDestruct "H" as "[$ H]".
-    iModIntro.
-    iDestruct "H" as "[_ $]".
   Qed.
 
   Lemma ltl_until_and_r' (P1 P2 Q1 Q2 : tProp) :
@@ -1307,7 +1300,7 @@ Section ltl_derived_constructs.
   Proof.
     iIntros "[H1 H2]".
     iRevert "H2".
-    iApply (ltl_until_ind with "[] H1").
+    iApply (ltl_until_ind_strong with "[] H1").
     iIntros "!> H1 H2".
     rewrite {3}(ltl_until_unfold P2 Q2).
     iDestruct "H1" as "[HQ1|(HP1&HPQ1&IH)]".
@@ -1329,7 +1322,7 @@ Section ltl_derived_constructs.
   Lemma ltl_until_or (P Q1 Q2 : tProp) :
     P ∪ (Q1 ∨ Q2) ⊢ P ∪ Q1 ∨ P ∪ Q2.
   Proof.
-    iApply ltl_until_ind.
+    iApply ltl_until_ind_strong.
     iIntros "!> [HQ|HP]".
     { iDestruct "HQ" as "[HQ1|HQ2]".
       - iLeft. by rewrite -ltl_until_intro_now.
@@ -1353,20 +1346,20 @@ Section ltl_derived_constructs.
   Proof.
     constructor.
     intros. split.
-    - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
-    - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
+    - apply ltl_until_mono; [by rewrite H|by rewrite H0].
+    - apply ltl_until_mono; [by rewrite H|by rewrite H0].
   Qed.
   Global Instance ltl_until_mono' :
     Proper ((⊢) ==> (⊢) ==> (⊢)) (ltl_until).
   Proof.
     constructor.
-    intros ?. apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
+    intros ?. apply ltl_until_mono; [by rewrite H|by rewrite H0].
   Qed.
   Global Instance ltl_until_flip_mono' :
     Proper (flip (⊢) ==> flip (⊢) ==> flip (⊢)) (ltl_until).
   Proof.
     constructor.
-    intros ?. apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
+    intros ?. apply ltl_until_mono; [by rewrite H|by rewrite H0].
   Qed.
 
   Global Instance ltl_until_combine (P1 P2 Q1 Q2 : tProp) :
@@ -1394,13 +1387,13 @@ Section ltl_derived_constructs.
          apply ltl_eventually_intro_now.
   Qed.
 
-  Lemma ltl_eventually_mono (P Q : tProp) :
+  Lemma ltl_eventually_mono_strong (P Q : tProp) :
     □ (P → Q) ⊢ ◊P → ◊Q.
-  Proof. by iApply ltl_until_mono. Qed.
+  Proof. by iApply ltl_until_mono_strong. Qed.
 
-  Lemma ltl_eventually_mono_alt (P Q : tProp) :
+  Lemma ltl_eventually_mono (P Q : tProp) :
     (P ⊢ Q) → (◊P) ⊢ (◊Q).
-  Proof. by apply ltl_until_mono_alt. Qed.
+  Proof. by apply ltl_until_mono. Qed.
 
   Lemma ltl_eventually_and (P Q : tProp) :
     (◊ (P ∧ Q)) ⊢ (◊ P) ∧ (◊ Q).
@@ -1411,8 +1404,8 @@ Section ltl_derived_constructs.
   Proof.
     rewrite -ltl_until_next_comm.
     apply bi.equiv_entails_2.
-    - apply ltl_until_mono_alt; [|done]. by apply ltl_next_taut.
-    - apply ltl_until_mono_alt; [|done]. eauto.
+    - apply ltl_until_mono; [|done]. by apply ltl_next_emp.
+    - apply ltl_until_mono; [|done]. eauto.
   Qed.
 
   Lemma ltl_eventually_idemp (P : tProp) :
@@ -1423,7 +1416,7 @@ Section ltl_derived_constructs.
     (◊ ○ P) ⊢ (◊ P).
   Proof.
     rewrite <-(ltl_eventually_idemp P).
-    apply ltl_eventually_mono_alt.
+    apply ltl_eventually_mono.
     apply ltl_eventually_intro_next.
   Qed.
 
@@ -1437,12 +1430,12 @@ Section ltl_derived_constructs.
 
   Lemma ltl_until_eventually (P Q : tProp) :
     (P ∪ Q) ⊢ (◊ Q).
-  Proof. apply ltl_until_mono_alt; by eauto. Qed.
+  Proof. apply ltl_until_mono; by eauto. Qed.
 
   Lemma ltl_eventually_ind (P Q : tProp) :
     (□ (P ∨ ○ ◊ P ∧ ○ Q → Q)) ⊢ ◊ P → Q.
   Proof.
-    iIntros "#H". iApply ltl_until_ind.
+    iIntros "#H". iApply ltl_until_ind_strong.
     iModIntro. iIntros "[HP|HP]".
     { iApply "H". iLeft. done. }
     iApply "H". iRight. iDestruct "HP" as "[_ $]".
@@ -1503,7 +1496,7 @@ Section ltl_derived_constructs.
     rewrite /IntoAnd. simpl.
     intros HPQ.
     rewrite -ltl_eventually_and.
-    by eapply ltl_eventually_mono_alt.
+    by eapply ltl_eventually_mono.
   Qed.
 
   Global Instance into_sep_eventually (P Q1 Q2 : tProp) :
@@ -1515,7 +1508,7 @@ Section ltl_derived_constructs.
     rewrite !bi_sep_and.
     intros HPQ.
     rewrite -ltl_eventually_and.
-    by eapply ltl_eventually_mono_alt.
+    by eapply ltl_eventually_mono.
   Qed.
 
   Global Instance into_next_eventually (P Q : tProp) :
@@ -1524,7 +1517,7 @@ Section ltl_derived_constructs.
   Proof.
     rewrite /IntoNext. intros HPQ.
     rewrite -ltl_eventually_next_comm.
-    eapply ltl_eventually_mono_alt.
+    eapply ltl_eventually_mono.
     specialize HPQ. simpl in HPQ.
     done.
   Qed.
@@ -1580,11 +1573,11 @@ Section ltl_derived_constructs.
       iDestruct "HP'" as "#HP'".
       iDestruct "HP" as "#HP".
       iEval (rewrite -ltl_until_idemp).
-      by iApply (ltl_until_mono Q Q R'); [eauto| |done].
+      by iApply (ltl_until_mono_strong Q Q R'); [eauto| |done].
     - rewrite HP HP'.
       iDestruct "HP" as "#HP".
       iEval (rewrite -ltl_until_idemp).
-      by iApply (ltl_until_mono Q Q R'); [eauto| |done].
+      by iApply (ltl_until_mono_strong Q Q R'); [eauto| |done].
   Qed.
 
   Global Instance from_exist_until {A} P Q (Φ : A → tProp) :
@@ -1599,7 +1592,7 @@ Section ltl_derived_constructs.
   Proof.
     iSplit.
     { iIntros "H". iEval (rewrite -ltl_until_intro_now). done. }
-    iApply ltl_until_ind.
+    iApply ltl_until_ind_strong.
     iIntros "!> [H|(HP&H&IH)]".
     { done. }
     rewrite -ltl_always_next_comm.
@@ -1629,10 +1622,10 @@ Section ltl_derived_constructs.
   Proof.
     rewrite /IntoWand /= => HR.
     iIntros "#HR". destruct q.
-    - simpl. iIntros "#H". iApply (ltl_until_mono with "[] [] H").
+    - simpl. iIntros "#H". iApply (ltl_until_mono_strong with "[] [] H").
       + eauto.
       + iIntros "!> HQ". by iApply HR.
-    - simpl. iIntros "H". iApply (ltl_until_mono with "[] [] H").
+    - simpl. iIntros "H". iApply (ltl_until_mono_strong with "[] [] H").
       + eauto.
       + iIntros "!>". by iApply HR.
   Qed.
