@@ -673,6 +673,28 @@ Global Instance: Params (@ltl_next) 2 := {}.
 
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 
+Global Instance ltl_next_proper {S L Rel} : Proper ((≡) ==> (≡)) (@ltl_next S L Rel).
+Proof.
+  rewrite ltl_next_unseal.
+  constructor.
+  intros.
+  constructor; inversion 1; simplify_eq; econstructor; by apply H.
+Qed.
+Global Instance ltl_next_mono' {S L Rel} :
+  Proper ((⊢) ==> (⊢)) (@ltl_next S L Rel).
+Proof.
+  rewrite ltl_next_unseal.
+  constructor.
+  inversion 1; simplify_eq; econstructor; by apply H.
+Qed.
+Global Instance ltl_next_flip_mono' {S L Rel} :
+  Proper (flip (⊢) ==> flip (⊢)) (@ltl_next S L Rel).
+Proof.
+  rewrite ltl_next_unseal.
+  constructor.
+  inversion 1; simplify_eq; econstructor; by apply H.
+Qed.
+
 Section ltl_lemmas.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
@@ -724,69 +746,67 @@ Section ltl_lemmas.
 
   (** AXIOMS *)
 
-  (** ltl_not lemmas *)
+  (** ltl_always lemmas *)
 
-  Lemma excl_false (P : tProp) :
-    P ∧ ¬ P ⊢ False.
+  (* A4 *)
+  Lemma ltl_always_intro (P : tProp) :
+    □ (P → ○ P) ⊢ P → □ P.
   Proof.
-    constructor. unseal.
-    intros tr [H1 H2].
-    by apply H2.
+    rewrite !bi_intuitionistically_unseal.
+    constructor. ltl_unseal. unseal.
+    cofix IH.
+    intros tr Htr.
+    inversion Htr; simplify_eq.
+    - intros HP. econstructor. done.
+    - intros HP. pose proof (HP) as HP'. apply H in HP'. inversion HP'. by econstructor.
+    - intros HP. econstructor; [done|].
+      + apply H in HP. inversion HP. apply IH.
+        * done.
+        * done.
   Qed.
 
-  Lemma ltl_not_not (P :tProp) :
-    P ⊢ ¬ ¬ P.
+  (* A5(?) - A5 ties until to its unfolding, consequently tying always to its unfolding *)
+  Lemma ltl_always_unfold (P : tProp) :
+    □ P ⊣⊢ P ∧ ○ □ P.
   Proof.
-    constructor.
-    intros tr HP.
-    unseal.
-    intros H1. apply H1. done.
+    apply bi.equiv_entails_2.
+    - rewrite bi_intuitionistically_unseal.
+      constructor. ltl_unseal. unseal. intros tr Halways.
+      destruct tr as [[[]|]]; inversion Halways; simplify_eq.
+      + econstructor; [done|]. econstructor. econstructor. done.
+      + econstructor; [done|]. inversion H9; simplify_eq; by econstructor.
+      + econstructor; [done|]. econstructor. done.
+    - rewrite bi_intuitionistically_unseal.
+      constructor. ltl_unseal. unseal. intros tr Halways.
+      destruct tr as [[[]|]].
+      { inversion Halways; simplify_eq.
+        inversion H0; simplify_eq.
+        inversion H4; simplify_eq.
+        by econstructor. }
+      + inversion Halways; simplify_eq.
+        inversion H0; simplify_eq.
+        inversion H4; simplify_eq.
+        * by econstructor.
+        * by econstructor.
+      + inversion Halways; simplify_eq.
+        inversion H0; simplify_eq.
+        by econstructor.
+    Unshelve. done.
   Qed.
 
   (** ltl_next lemmas *)
 
   (* N○ *)
-  Lemma ltl_next_taut (P : tProp) :
-    (⊢ P) → (⊢ ○ P).
+  Lemma ltl_next_emp :
+    ⊢ ○ True : tProp.
   Proof.
-    intros [HP].
     constructor.
     intros tr _.
-    ltl_unseal. destruct tr as [[[]|]].
-    - econstructor 2. apply HP. unseal. done. Unshelve. apply trace_maximal_empty.
-    - econstructor 3. apply HP. unseal. done. Unshelve. inversion tr_wf0. done.
-    - econstructor 1. apply HP. unseal. done. Unshelve. done.
+    ltl_unseal. destruct tr as [[[]|]]; econstructor; unseal; done.
+    Unshelve. all: eauto. constructor. inversion tr_wf0. done.
   Qed.
 
-  (* A3 *)
-  Lemma ltl_next_mono_strong (P Q : tProp) :
-    ○ (P → Q) ⊢ ○ P → ○ Q.
-  Proof.
-    constructor. ltl_unseal. unseal.
-    intros tr HPQ HP.
-    inversion HP; inversion HPQ; simplify_eq; econstructor; naive_solver.
-  Qed.
-
-  Lemma ltl_next_or_r (P Q : tProp) :
-    ○ (P ∨ Q) ⊢ (○ P) ∨ (○ Q).
-  Proof.
-    ltl_unseal. unseal. constructor.
-    intros tr. inversion 1; simplify_eq.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
-    + inversion H0; simplify_eq; [left|right]; by econstructor.
-  Qed.
-
-  Lemma ltl_false_next :
-    ○ False ⊢ False : tProp.
-  Proof.
-    split. intros tr. unseal. ltl_unseal.
-    destruct tr as [[[]|]].
-    - intros. inversion H. subst. eauto.
-    - intros. inversion H. subst. eauto.
-    - intros. inversion H. subst. eauto.
-  Qed.
-
+  (* A2 *)
   Lemma ltl_next_not (P : tProp) :
     ¬ ○ P ⊣⊢ ○ (¬ P).
   Proof.
@@ -808,114 +828,56 @@ Section ltl_lemmas.
     1: { inversion tr_wf0. done. }
   Qed.
 
-  (** ltl_always lemmas *)
-
-  Lemma ltl_always_intro (P : tProp) :
-    □ (P → ○ P) ⊢ P → □ P.
-  Proof.
-    rewrite !bi_intuitionistically_unseal.
-    constructor. ltl_unseal. unseal.
-    cofix IH.
-    intros tr Htr.
-    inversion Htr; simplify_eq.
-    - intros HP. econstructor. done.
-    - intros HP. pose proof (HP) as HP'. apply H in HP'. inversion HP'. by econstructor.
-    - intros HP. econstructor; [done|].
-      + apply H in HP. inversion HP. apply IH.
-        * done.
-        * done.
-  Qed.
-
-  Lemma ltl_always_next (P : tProp) :
-    □ P ⊢ ○ □ P.
-  Proof.
-    constructor. ltl_unseal. intros tr Halways.
-    rewrite bi_intuitionistically_unseal' ltl_always_unseal in Halways.
-    destruct tr as [[[]|]]; inversion Halways.
-    - econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal. econstructor. done.
-    - econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal.  done.
-    - econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal.  done.
-      Unshelve. done.
-  Qed.
-
-  Lemma ltl_always_next_comm_1 (P : tProp) :
-    □ ○ P ⊢ ○ □ P.
-  Proof.
-    constructor. ltl_unseal. intros tr Halways.
-    rewrite bi_intuitionistically_unseal' in Halways. rewrite ltl_always_unseal in Halways.
-    destruct tr as [[[]|]].
-    - econstructor. inversion Halways. inversion H4. inversion H5.
-      rewrite bi_intuitionistically_unseal' ltl_always_unseal. econstructor. done.
-    - assert (trace_maximal Rel (Some r)) as Hwf.
-      { inversion tr_wf0. done. }
-      econstructor.
-      instantiate (1:=Hwf).
-      rewrite bi_intuitionistically_unseal' ltl_always_unseal.
-      revert s ℓ r tr_wf0 Halways Hwf. cofix IH.
-      intros. destruct r as [].
-      { inversion Halways. simplify_eq.
-        inversion H9. simplify_eq.
-        inversion H4. simplify_eq.
-        inversion H12. simplify_eq.
-        econstructor.
-        - done.
-        - done.
-      }
-      inversion Halways. simplify_eq. inversion H4. simplify_eq.
-      econstructor.
-      { done. }
-      eapply IH.
-      done.
-    - inversion Halways. inversion H. econstructor. rewrite bi_intuitionistically_unseal' ltl_always_unseal.
-      econstructor. done.
-      Unshelve.
-      all: eauto.
-      { constructor. }
-      { inversion Hwf. done. }
-  Qed.
-
-  Lemma ltl_always_next_comm_2 (P : tProp) :
-    ○ □ P ⊢ □ ○ P.
+  (* A3 - Strong version derived in [ltl_next_mono_strong *)
+  Lemma ltl_next_mono (P Q : tProp) :
+    (P ⊢ Q) → (○ P ⊢ ○ Q).
   Proof.
     constructor. ltl_unseal.
-    intros tr Halways.
-    rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.
-    destruct tr as [[[]|]].
-    { inversion Halways; subst.
-      rewrite bi_intuitionistically_unseal' in H0. rewrite ltl_always_unseal in H0.
-      inversion H0; subst.
-      econstructor; econstructor; done. }
-    {
-      inversion Halways; subst.
-      clear Halways.
-      rewrite bi_intuitionistically_unseal' in H0. rewrite ltl_always_unseal in H0.
-      revert s ℓ r tr_wf0 H1 H0 H5 H3 H7.
-      cofix IH.
-      intros.
-      inversion H0; subst.
-      - econstructor.
-        + econstructor. done.
-        + econstructor; econstructor; done.
-      - econstructor.
-        + econstructor. done.
-        + by eapply IH. }
-    { inversion Halways; subst.
-      rewrite bi_intuitionistically_unseal' in H. rewrite ltl_always_unseal in H.
-      inversion H; subst.
-      econstructor; econstructor; done. }
-    Unshelve. all: eauto.
+    intros [tr wf] HP.
+    inversion HP; simplify_eq; econstructor; apply H; try naive_solver.
   Qed.
 
-  Lemma ltl_always_next_comm (P : tProp) :
-    □ ○ P ⊣⊢ ○ □ P.
+  (* N○ *)
+  Lemma ltl_next_taut (P : tProp) :
+    (⊢ P) → (⊢ ○ P).
   Proof.
-    iSplit.
-    - iApply ltl_always_next_comm_1.
-    - iApply ltl_always_next_comm_2.
+    intros HP.
+    rewrite /bi_emp_valid. rewrite ltl_next_emp. apply ltl_next_mono.
+    done.
   Qed.
 
-  (** LTL Exists *)
+  (* TODO: Can we derive this somehow? *)
+  Lemma ltl_false_next :
+    ○ False ⊢ False : tProp.
+  Proof.
+    split. intros tr. unseal. ltl_unseal.
+    destruct tr as [[[]|]].
+    - intros. inversion H. subst. eauto.
+    - intros. inversion H. subst. eauto.
+    - intros. inversion H. subst. eauto.
+  Qed.
 
+  (* TODO: Unclear if we cannot derive this but does not seem derivable without EM. *)
+  Lemma ltl_next_and_2 (P Q : tProp) :
+    (○ P) ∧ (○ Q) ⊢ ○ (P ∧ Q).
+  Proof.
+    constructor. ltl_unseal. unseal.
+    intros [tr wf] [HP HQ].
+    inversion HP; inversion HQ; simplify_eq; econstructor; split; try naive_solver.
+  Qed.
+
+  (* TODO: Unclear if we cannot derive this, but odes not seem derivable without EM. *)
+  Lemma ltl_next_or_2 (P Q : tProp) :
+    ○ (P ∨ Q) ⊢ (○ P) ∨ (○ Q).
+  Proof.
+    ltl_unseal. unseal. constructor.
+    intros tr. inversion 1; simplify_eq.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
+    + inversion H0; simplify_eq; [left|right]; by econstructor.
+  Qed.
+
+  (* TODO: Unclear if we cannot derive this, but odes not seem derivable without EM. *)
   Lemma ltl_next_exists {A} (P : A → tProp) :
     (○ ∃ x, P x)%I ⊢ ∃ x, ○ P x.
   Proof.
@@ -936,29 +898,50 @@ Section ltl_derived_rules.
 
   (** DERIVED RULES *)
 
-  Lemma ltl_next_mono (P Q : tProp) :
-    (P ⊢ Q) → (○ P ⊢ ○ Q).
+  (* Always *)
+
+  (* OBS: Not used, but added for reference *)
+  (* Actual N□ *)
+  Lemma ltl_always_taut (P : tProp) :
+    (⊢ P) → (⊢ □ P).
   Proof.
-    intros HPQ.
-    apply impl_intro_l.
-    rewrite -ltl_next_mono_strong.
-    apply ltl_next_taut.
-    apply impl_intro_r.
-    apply HPQ.
+    intros HP. rewrite /bi_emp_valid.
+    rewrite -bi.intuitionistically_emp.
+    eapply bi.intuitionistically_mono'.
+    apply HP.
   Qed.
 
-  Lemma ltl_next_and (P Q : tProp) :
-    (○ P) ∧ (○ Q) ⊣⊢ ○ (P ∧ Q).
+  (* Actual A1 / K□ *)
+  Lemma ltl_always_mono_strong (P Q : tProp) :
+    □ (P → Q) ⊢ □ P → □ Q.
   Proof.
-    apply bi.equiv_entails_2.
-    - apply bi.impl_elim_r'.
-      rewrite -ltl_next_mono_strong.
-      apply ltl_next_mono.
-      apply bi.impl_intro_l.
-      done.
-    - apply bi.and_intro.
-      + apply ltl_next_mono. rewrite bi.and_elim_l. done.
-      + apply ltl_next_mono. rewrite bi.and_elim_r. done.
+    apply bi.impl_intro_r.
+    rewrite -bi.intuitionistically_and.
+    apply bi.intuitionistically_mono'.
+    apply bi.impl_elim_l.
+  Qed.
+
+  (* Next *)
+
+  Lemma ltl_always_next (P : tProp) :
+    □ P ⊢ ○ □ P.
+  Proof. rewrite {1}ltl_always_unfold. apply bi.and_elim_r. Qed.
+
+  Lemma ltl_next_and (P Q : tProp) : ○ P ∧ ○ Q ⊣⊢ ○ (P ∧ Q).
+  Proof.
+    apply (anti_symm _); auto using ltl_next_and_2.
+    apply bi.and_intro.
+    - apply ltl_next_mono. apply bi.and_elim_l.
+    - apply ltl_next_mono. apply bi.and_elim_r.
+  Qed.
+
+  Lemma ltl_next_mono_strong (P Q : tProp) :
+    ○ (P → Q) ⊢ ○ P → ○ Q.
+  Proof.
+    apply bi.impl_intro_r.
+    rewrite ltl_next_and.
+    apply ltl_next_mono.
+    apply bi.impl_elim_l.
   Qed.
 
   Lemma ltl_next_or (P Q : tProp) :
@@ -968,7 +951,38 @@ Section ltl_derived_rules.
     - apply bi.or_elim.
       + apply ltl_next_mono. apply bi.or_intro_l.
       + apply ltl_next_mono. apply bi.or_intro_r.
-    - apply ltl_next_or_r.
+    - apply ltl_next_or_2.
+  Qed.
+
+  Lemma ltl_always_next_comm_1 (P : tProp) :
+    □ ○ P ⊢ ○ □ P.
+  Proof.
+    rewrite ltl_always_unfold.
+    iIntros "H".
+    rewrite ltl_next_and.
+    iApply (ltl_next_mono with "H").
+    iIntros "[HP #IH]".
+    iApply ltl_always_intro; [|iFrame].
+    iIntros "!> _". done.
+  Qed.
+
+  Lemma ltl_always_next_comm_2 (P : tProp) :
+    ○ □ P ⊢ □ ○ P.
+  Proof.
+    rewrite (ltl_always_unfold (○ P)).
+    iIntros "H".
+    iSplit.
+    - iApply (ltl_next_mono with "H"). eauto.
+    - iApply (ltl_next_mono with "H"). rewrite -(bi.intuitionistically_idemp P).
+      rewrite (ltl_always_next P). rewrite {1}(bi.intuitionistically_elim P). done.
+  Qed.
+
+  Lemma ltl_always_next_comm (P : tProp) :
+    □ ○ P ⊣⊢ ○ □ P.
+  Proof.
+    iSplit.
+    - iApply ltl_always_next_comm_1.
+    - iApply ltl_always_next_comm_2.
   Qed.
 
   Lemma ltl_next_always_combine (P Q : tProp) :
@@ -980,15 +994,6 @@ Section ltl_derived_rules.
   Proof. done. Qed.
 
   (** Proofmode stuff *)
-
-  (* TODO: Move *)
-  Global Instance ltl_next_proper : Proper ((≡) ==> (≡)) (@ltl_next S L Rel).
-  Proof.
-    constructor.
-    intros. split.
-    - apply ltl_next_mono. rewrite H. done.
-    - apply ltl_next_mono. rewrite H. done.
-  Qed.
 
 End ltl_derived_rules.
 
@@ -1119,7 +1124,7 @@ Section ltl_derived_constructs.
 
   Notation tProp := (tProp S L Rel).
 
-  (* Eventually *)
+  (* Until *)
   Definition ltl_until_F (P Q : tProp) : (() → tProp) → (() → tProp) :=
     (λ (X : unit → tProp) _, Q ∨ (P ∧ ○ (X ())))%I.
 
@@ -1194,7 +1199,7 @@ Section ltl_derived_constructs.
     iApply HQ.
   Qed.
 
-  Lemma ltl_until_mono' P1 P2 Q1 Q2 :
+  Lemma ltl_until_mono_alt' P1 P2 Q1 Q2 :
     □ (P1 → P2) ∧ □ (Q1 → Q2) ⊢
     P1 ∪ Q1 → P2 ∪ Q2.
   Proof.
@@ -1332,7 +1337,7 @@ Section ltl_derived_constructs.
     }
     iDestruct "HP" as "(HP&HPQ&IH)".
     rewrite -!ltl_until_next_comm.
-    rewrite {1}(ltl_next_or_r (P ∪ Q1)).
+    rewrite {1}(ltl_next_or_2 (P ∪ Q1)).
     iDestruct "IH" as "[IH|IH]".
     - iLeft. iEval (rewrite ltl_until_unfold).
       iRight. iFrame.
@@ -1350,6 +1355,18 @@ Section ltl_derived_constructs.
     intros. split.
     - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
     - apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
+  Qed.
+  Global Instance ltl_until_mono' :
+    Proper ((⊢) ==> (⊢) ==> (⊢)) (ltl_until).
+  Proof.
+    constructor.
+    intros ?. apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
+  Qed.
+  Global Instance ltl_until_flip_mono' :
+    Proper (flip (⊢) ==> flip (⊢) ==> flip (⊢)) (ltl_until).
+  Proof.
+    constructor.
+    intros ?. apply ltl_until_mono_alt; [by rewrite H|by rewrite H0].
   Qed.
 
   Global Instance ltl_until_combine (P1 P2 Q1 Q2 : tProp) :
