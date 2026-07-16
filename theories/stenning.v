@@ -381,8 +381,8 @@ Section stenning_ex.
     iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m') "[(%Hm&Hl'&Hs)|(%Hm&Hl'&Hs)]".
     { rewrite -ltl_next_eventually. iModIntro. by iApply stenning_A_send. }
     subst.
-    iExFalso.
-    iApply ltl_false_next. iModIntro.
+    rewrite -ltl_next_eventually.
+    iModIntro. iExFalso.
     iApply "Hm". done.
   Qed.
 

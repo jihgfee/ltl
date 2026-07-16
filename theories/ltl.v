@@ -440,7 +440,7 @@ Section ltl_always_lemmas.
 
   (* K□ *)
   Lemma ltl_always_mono_strong_pre (P Q : tProp) :
-    (□ (P → Q) ⊢ □ P → □ Q).
+    □ (P → Q) ⊢ □ P → □ Q.
   Proof.
     unseal.
     intros. constructor.
@@ -509,23 +509,6 @@ Section ltl_always_lemmas.
       by econstructor.
   Qed.
 
-  Lemma ltl_always_and (P Q : tProp) :
-    (□ P) ∧ (□ Q) ⊢ □ (P ∧ Q).
-  Proof.
-    unseal.
-    econstructor. intros.
-    revert tr H.
-    cofix IH.
-    intros tr Htr.
-    inversion Htr.
-    inversion H; simplify_eq.
-    { inversion H0; simplify_eq. econstructor. split; done. }
-    { inversion H0; simplify_eq. econstructor; split; done. }
-    inversion H0; simplify_eq. econstructor.
-    + done.
-    + apply IH. split; done.
-  Qed.
-
   (** Derived constructs *)
 
   Lemma ltl_always_emp :
@@ -545,6 +528,16 @@ Section ltl_always_lemmas.
     apply ltl_always_taut.
     apply impl_intro_r.
     etrans; [apply and_elim_r|].
+    done.
+  Qed.
+
+  Lemma ltl_always_and (P Q : tProp) :
+    (□ P) ∧ (□ Q) ⊢ □ (P ∧ Q).
+  Proof.
+    apply impl_elim_l'.
+    etrans; [|apply ltl_always_mono_strong_pre].
+    apply ltl_always_mono.
+    apply impl_intro_r.
     done.
   Qed.
 
@@ -891,27 +884,7 @@ Section ltl_lemmas.
     1: { inversion tr_wf0. done. }
   Qed.
 
-  (* TODO: Can we derive this somehow? *)
-  Lemma ltl_false_next :
-    ○ False ⊢ False : tProp.
-  Proof.
-    split. intros tr. unseal. ltl_unseal.
-    destruct tr as [[[]|]].
-    - intros. inversion H. subst. eauto.
-    - intros. inversion H. subst. eauto.
-    - intros. inversion H. subst. eauto.
-  Qed.
-
-  (* TODO: Unclear if we cannot derive this but does not seem derivable without EM. *)
-  Lemma ltl_next_and_2 (P Q : tProp) :
-    (○ P) ∧ (○ Q) ⊢ ○ (P ∧ Q).
-  Proof.
-    constructor. ltl_unseal. unseal.
-    intros [tr wf] [HP HQ].
-    inversion HP; inversion HQ; simplify_eq; econstructor; split; try naive_solver.
-  Qed.
-
-  (* TODO: Unclear if we cannot derive this, but odes not seem derivable without EM. *)
+  (* TODO: Unclear if we cannot derive this, but does not seem derivable without EM. *)
   Lemma ltl_next_exists {A} (P : A → tProp) :
     (○ ∃ x, P x)%I ⊢ ∃ x, ○ P x.
   Proof.
@@ -957,9 +930,6 @@ Section ltl_derived_rules.
 
   (* Next *)
 
-  (* Actual N○ - included for completeness *)
-
-  (* N○ - Strong version derived in [ltl_next_taut]*)
   Lemma ltl_next_emp :
     True ⊢ ○ True : tProp.
   Proof. iIntros "_". by iApply ltl_next_taut. Qed.
@@ -972,16 +942,32 @@ Section ltl_derived_rules.
     iApply ltl_next_taut. iApply HPQ.
   Qed.
 
+  Lemma ltl_false_next :
+    ○ False ⊢ False : tProp.
+  Proof.
+    iIntros "H".
+    iDestruct (ltl_dup with "H") as "[H Hf]".
+    iAssert (○ (False → False))%I with "[H]" as "H'".
+    { iApply (ltl_next_mono_strong with "[] H"). iApply ltl_next_taut. eauto. }
+    rewrite -ltl_next_not.
+    iApply "H'". done.
+  Qed.
+
   Lemma ltl_always_next (P : tProp) :
     □ P ⊢ ○ □ P.
   Proof. rewrite {1}ltl_always_unfold. apply bi.and_elim_r. Qed.
 
   Lemma ltl_next_and (P Q : tProp) : ○ P ∧ ○ Q ⊣⊢ ○ (P ∧ Q).
   Proof.
-    apply (anti_symm _); auto using ltl_next_and_2.
-    apply bi.and_intro.
-    - apply ltl_next_mono. apply bi.and_elim_l.
-    - apply ltl_next_mono. apply bi.and_elim_r.
+    apply (anti_symm _).
+    - apply bi.impl_elim_l'.
+      etrans; [|apply ltl_next_mono_strong].
+      apply ltl_next_mono.
+      apply bi.impl_intro_r.
+      done.
+    - apply bi.and_intro.
+      + apply ltl_next_mono. apply bi.and_elim_l.
+      + apply ltl_next_mono. apply bi.and_elim_r.
   Qed.
 
   Lemma ltl_next_or_2 (P Q : tProp) :
