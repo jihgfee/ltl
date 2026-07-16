@@ -187,7 +187,7 @@ Section primitive.
   in this file. *)
 
   (** Entailment *)
-  Lemma entails_po : PreOrder (@ltl_entails S L Rel).
+  Global Instance entails_po : PreOrder (@ltl_entails S L Rel).
   Proof.
     split.
     - intros P; by split=> i.
@@ -338,7 +338,22 @@ Section ltl_always_constructor.
   Definition ltl_always_unseal :
     @ltl_always = @ltl_always_def := seal_eq ltl_always_aux.
 
+  (* LTL Operators *)
+  Inductive ltl_next_def (P : tProp) : tProp :=
+  | ltl_next_empty H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨⟩ @ H2)
+  | ltl_next_single s H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨s⟩ @ H2)
+  | ltl_next_cons s l tr H1 H2 : P (Trace (Some tr) H1) → ltl_next_def P ((s -[ l ]-> tr) @ H2).
+  Definition ltl_next_aux : seal (@ltl_next_def).
+  Proof. by eexists. Qed.
+  Definition ltl_next := unseal ltl_next_aux.
+  Definition ltl_next_unseal :
+    @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
+
 End ltl_always_constructor.
+
+Global Instance: Params (@ltl_next) 2 := {}.
+
+Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
 
 Section ltl_always_lemmas.
   Context {S L : Type}.
@@ -351,9 +366,26 @@ Section ltl_always_lemmas.
     (@ltl_pure_unseal S L Rel, @ltl_and_unseal S L Rel, @ltl_or_unseal S L Rel,
        @ltl_impl_unseal S L Rel, @ltl_forall_unseal S L Rel, @ltl_exist_unseal S L Rel,
          @ltl_later_unseal S L Rel, @ltl_internal_eq_unseal S L Rel,
-           @ltl_always_unseal S L Rel).
+           @ltl_always_unseal S L Rel, @ltl_next_unseal S L Rel).
 
   Ltac unseal := rewrite !ltl_unseal /=.
+
+  (** The notations below are implicitly local due to the section, so we do not
+  mind the overlap with the general BI notations. *)
+  Notation "P ⊢ Q" := (ltl_entails P Q).
+  Notation "'True'" := (ltl_pure True) : bi_scope.
+  Notation "'False'" := (ltl_pure False) : bi_scope.
+  Notation "'⌜' φ '⌝'" := (ltl_pure φ%type%stdpp) : bi_scope.
+  Infix "∧" := ltl_and : bi_scope.
+  Infix "∨" := ltl_or : bi_scope.
+  Infix "→" := ltl_impl : bi_scope.
+  Notation "∀ x .. y , P" :=
+    (ltl_forall (λ x, .. (ltl_forall (λ y, P%I)) ..)) : bi_scope.
+  Notation "∃ x .. y , P" :=
+    (ltl_exist (λ x, .. (ltl_exist (λ y, P%I)) ..)) : bi_scope.
+  Notation "▷ P" := (ltl_later P) : bi_scope.
+  Notation "x ≡ y" := (ltl_internal_eq x y) : bi_scope.
+  Notation "□ P" := (ltl_always P) : bi_scope.
 
   Instance ne_proper (f : tProp → tProp) `{!Proper ((≡) ==> (≡)) f} : NonExpansive f.
   Proof.
@@ -389,8 +421,25 @@ Section ltl_always_lemmas.
       * apply IH; done.
   Qed.
 
+  (* N□ *)
+  Lemma ltl_always_emp :
+    True ⊢ (□ True) : tProp.
+  Proof.
+    unseal.
+    econstructor. intros.
+    revert tr H.
+    cofix IH.
+    intros tr Htr.
+    destruct tr as [[[]|] ?].
+    { by econstructor. }
+    + econstructor. done. apply IH. done.
+    + econstructor. done.
+    Unshelve. all: try econstructor. all: by inversion tr_wf0.
+  Qed.
+
+  (* K□ *)
   Lemma ltl_always_mono (P Q : tProp) :
-    (ltl_entails P Q)%I → ltl_entails (ltl_always P) (ltl_always Q).
+    (P ⊢ Q)%I → (□ P ⊢ □ Q)%I.
   Proof.
     unseal.
     intros. constructor. intros.
@@ -407,23 +456,56 @@ Section ltl_always_lemmas.
       * by apply IH.
   Qed.
 
-  Lemma ltl_always_emp :
-    ltl_entails (ltl_pure True) (ltl_always (ltl_pure True) : tProp).
+  (* A4 *)
+  Lemma ltl_always_intro_pre (P : tProp) :
+    □ (P → ○ P) ⊢ P → □ P.
   Proof.
-    unseal.
-    econstructor. intros.
-    revert tr H.
+    constructor. unseal.
     cofix IH.
     intros tr Htr.
-    destruct tr as [[[]|] ?].
-    { by econstructor. }
-    + econstructor. done. apply IH. done.
-    + econstructor. done.
-    Unshelve. all: try econstructor. all: by inversion tr_wf0.
+    inversion Htr; simplify_eq.
+    - intros HP. econstructor. done.
+    - intros HP. pose proof (HP) as HP'. apply H in HP'. inversion HP'. by econstructor.
+    - intros HP. econstructor; [done|].
+      + apply H in HP. inversion HP. apply IH.
+        * done.
+        * done.
+  Qed.
+
+  (* A5(?) - A5 ties until to its unfolding, consequently tying always to its unfolding *)
+  Lemma ltl_always_unfold_pre_1 (P : tProp) :
+    □ P ⊢ P ∧ ○ □ P.
+  Proof.
+    constructor. rewrite ltl_always_unseal ltl_next_unseal. rewrite ltl_and_unseal.
+    intros tr Halways.
+    destruct tr as [[[]|]]; inversion Halways; simplify_eq.
+    + econstructor; [done|]. econstructor. econstructor. done.
+    + econstructor; [done|]. inversion H9; simplify_eq; by econstructor.
+    + econstructor; [done|]. econstructor. done.
+    Unshelve. done.
+  Qed.
+  Lemma ltl_always_unfold_pre_2 (P : tProp) :
+    P ∧ ○ □ P ⊢ □ P.
+  Proof.
+    constructor. rewrite ltl_always_unseal ltl_next_unseal ltl_and_unseal.
+    intros tr Halways.
+    destruct tr as [[[]|]].
+    { inversion Halways; simplify_eq.
+      inversion H0; simplify_eq.
+      inversion H4; simplify_eq.
+      by econstructor. }
+    + inversion Halways; simplify_eq.
+      inversion H0; simplify_eq.
+      inversion H4; simplify_eq.
+      * by econstructor.
+      * by econstructor.
+    + inversion Halways; simplify_eq.
+      inversion H0; simplify_eq.
+      by econstructor.
   Qed.
 
   Lemma ltl_always_and (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) (ltl_always Q)) (ltl_always (ltl_and P Q)).
+    (□ P) ∧ (□ Q) ⊢ □ (P ∧ Q).
   Proof.
     unseal.
     econstructor. intros.
@@ -439,42 +521,37 @@ Section ltl_always_lemmas.
     + apply IH. split; done.
   Qed.
 
-  Lemma ltl_always_affine (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) Q) (ltl_always P).
-  Proof.
-    unseal.
-    intros.
-    constructor. intros.
-    destruct H. done.
-  Qed.
+  (** Derived constructs *)
 
-  Lemma ltl_always_sep_and (P Q : tProp) :
-    ltl_entails (ltl_and (ltl_always P) Q) (ltl_and P Q).
-  Proof.
-    unseal.
-    intros. constructor. intros. destruct H.
-    split.
-    + by inversion H.
-    + done.
-  Qed.
-
-  (* OBS: This can be derived, but it is a bit cumbersome *)
+  (* Axiom of IPM instantiation *)
   Lemma ltl_always_idemp (P : tProp) :
-    ltl_entails (ltl_always P) (ltl_always (ltl_always P)).
+    □ P ⊢ □ □ P.
   Proof.
-    unseal.
-    intros. constructor.
-    cofix IH.
-    intros tr Htr.
-    inversion Htr; simplify_eq.
-    + econstructor. done.
-    + econstructor.
-      * done.
-      * econstructor. done.
-    + econstructor.
-      * done.
-      * apply IH. done.
-    Unshelve. done.
+    pose proof (ltl_always_intro_pre (□ P)) as Hintro.
+    apply impl_elim_l' in Hintro.
+    etrans; [|apply Hintro].
+    apply and_intro; [|done].
+    apply ltl_always_mono.
+    apply impl_intro_r.
+    etrans; [apply and_elim_r|].
+    etrans; [apply ltl_always_unfold_pre_1|].
+    apply and_elim_r.
+  Qed.
+
+  (* Axiom of IPM instantiation *)
+  Lemma ltl_always_affine (P Q : tProp) :
+    (□ P) ∧ Q ⊢ (□ P).
+  Proof. apply and_elim_l. Qed.
+
+  (* Axiom of IPM instantiation *)
+  Lemma ltl_always_sep_and (P Q : tProp) :
+    (□ P) ∧ Q ⊢ P ∧ Q.
+  Proof.
+    apply and_intro.
+    - etrans; [apply and_elim_l|].
+      etrans; [apply ltl_always_unfold_pre_1|].
+      apply and_elim_l.
+    - apply and_elim_r.
   Qed.
 
 End ltl_always_lemmas.
@@ -672,29 +749,6 @@ End restate.
 Ltac unseal := rewrite !ltl_unseal /=.
 End tProp.
 
-Section ltl_next_constructor.
-  Context {S L : Type}.
-  Context {Rel : S → L → S → Prop}.
-
-  Notation tProp := (tProp S L Rel).
-
-  (* LTL Operators *)
-  Inductive ltl_next_def (P : tProp) : tProp :=
-  | ltl_next_empty H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨⟩ @ H2)
-  | ltl_next_single s H1 H2 : P (⟨⟩ @ H1) -> ltl_next_def P (⟨s⟩ @ H2)
-  | ltl_next_cons s l tr H1 H2 : P (Trace (Some tr) H1) → ltl_next_def P ((s -[ l ]-> tr) @ H2).
-  Definition ltl_next_aux : seal (@ltl_next_def).
-  Proof. by eexists. Qed.
-  Definition ltl_next := unseal ltl_next_aux.
-  Definition ltl_next_unseal :
-    @ltl_next = @ltl_next_def := seal_eq ltl_next_aux.
-
-End ltl_next_constructor.
-
-Global Instance: Params (@ltl_next) 2 := {}.
-
-Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
-
 Global Instance ltl_next_proper {S L Rel} : Proper ((≡) ==> (≡)) (@ltl_next S L Rel).
 Proof.
   rewrite ltl_next_unseal.
@@ -768,57 +822,9 @@ Section ltl_lemmas.
 
   (** AXIOMS *)
 
-  (** ltl_always lemmas *)
-
-  (* A4 *)
-  Lemma ltl_always_intro (P : tProp) :
-    □ (P → ○ P) ⊢ P → □ P.
-  Proof.
-    rewrite !bi_intuitionistically_unseal.
-    constructor. ltl_unseal. unseal.
-    cofix IH.
-    intros tr Htr.
-    inversion Htr; simplify_eq.
-    - intros HP. econstructor. done.
-    - intros HP. pose proof (HP) as HP'. apply H in HP'. inversion HP'. by econstructor.
-    - intros HP. econstructor; [done|].
-      + apply H in HP. inversion HP. apply IH.
-        * done.
-        * done.
-  Qed.
-
-  (* A5(?) - A5 ties until to its unfolding, consequently tying always to its unfolding *)
-  Lemma ltl_always_unfold (P : tProp) :
-    □ P ⊣⊢ P ∧ ○ □ P.
-  Proof.
-    apply bi.equiv_entails_2.
-    - rewrite bi_intuitionistically_unseal.
-      constructor. ltl_unseal. unseal. intros tr Halways.
-      destruct tr as [[[]|]]; inversion Halways; simplify_eq.
-      + econstructor; [done|]. econstructor. econstructor. done.
-      + econstructor; [done|]. inversion H9; simplify_eq; by econstructor.
-      + econstructor; [done|]. econstructor. done.
-    - rewrite bi_intuitionistically_unseal.
-      constructor. ltl_unseal. unseal. intros tr Halways.
-      destruct tr as [[[]|]].
-      { inversion Halways; simplify_eq.
-        inversion H0; simplify_eq.
-        inversion H4; simplify_eq.
-        by econstructor. }
-      + inversion Halways; simplify_eq.
-        inversion H0; simplify_eq.
-        inversion H4; simplify_eq.
-        * by econstructor.
-        * by econstructor.
-      + inversion Halways; simplify_eq.
-        inversion H0; simplify_eq.
-        by econstructor.
-    Unshelve. done.
-  Qed.
-
   (** ltl_next lemmas *)
 
-  (* N○ *)
+  (* N○ - Strong version derived in [ltl_next_taut]*)
   Lemma ltl_next_emp :
     True ⊢ ○ True : tProp.
   Proof.
@@ -826,6 +832,15 @@ Section ltl_lemmas.
     intros tr _.
     ltl_unseal. destruct tr as [[[]|]]; econstructor; unseal; done.
     Unshelve. all: eauto. constructor. inversion tr_wf0. done.
+  Qed.
+
+  (* K○ - Strong version derived in [ltl_next_mono_strong] *)
+  Lemma ltl_next_mono (P Q : tProp) :
+    (P ⊢ Q) → (○ P ⊢ ○ Q).
+  Proof.
+    constructor. ltl_unseal.
+    intros [tr wf] HP.
+    inversion HP; simplify_eq; econstructor; apply H; try naive_solver.
   Qed.
 
   (* A2 *)
@@ -848,15 +863,6 @@ Section ltl_lemmas.
     Unshelve.
     1: { econstructor. }
     1: { inversion tr_wf0. done. }
-  Qed.
-
-  (* A3 - Strong version derived in [ltl_next_mono_strong *)
-  Lemma ltl_next_mono (P Q : tProp) :
-    (P ⊢ Q) → (○ P ⊢ ○ Q).
-  Proof.
-    constructor. ltl_unseal.
-    intros [tr wf] HP.
-    inversion HP; simplify_eq; econstructor; apply H; try naive_solver.
   Qed.
 
   (* TODO: Can we derive this somehow? *)
@@ -902,7 +908,6 @@ Section ltl_derived_rules.
 
   (* Always *)
 
-  (* OBS: Not used, but added for reference *)
   (* Actual N□ *)
   Lemma ltl_always_taut (P : tProp) :
     (⊢ P) → (⊢ □ P).
@@ -912,6 +917,18 @@ Section ltl_derived_rules.
     eapply bi.intuitionistically_mono'.
     apply HP.
   Qed.
+
+  Lemma ltl_always_unfold (P : tProp) :
+    □ P ⊣⊢ P ∧ ○ □ P.
+  Proof. rewrite bi_intuitionistically_unseal.
+    apply bi.equiv_entails_2.
+    - apply ltl_always_unfold_pre_1.
+    - apply ltl_always_unfold_pre_2.
+  Qed.
+
+  Lemma ltl_always_intro (P : tProp) :
+    □ (P → ○ P) ⊢ P → □ P.
+  Proof. rewrite !bi_intuitionistically_unseal. apply ltl_always_intro_pre. Qed.
 
   Lemma ltl_always_elim (P : tProp) :
     □ P ⊢ P.
@@ -925,16 +942,6 @@ Section ltl_derived_rules.
     rewrite -bi.intuitionistically_and.
     apply bi.intuitionistically_mono'.
     apply bi.impl_elim_l.
-  Qed.
-
-  (* We include this to show it can be derived from axioms, instead of being an axiom *)
-  Lemma ltl_always_idemp' (P : tProp) :
-    □ P ⊢ □ □ P.
-  Proof.
-    iApply ltl_always_intro.
-    iIntros "!> HP".
-    rewrite {1}ltl_always_unfold.
-    iDestruct "HP" as "[_ $]".
   Qed.
 
   (* Next *)
