@@ -1667,6 +1667,13 @@ Section ltl_derived_constructs.
       + iIntros "!>". by iApply HR.
   Qed.
 
+  Lemma ltl_false_eventually :
+    ◊ False ⊢ False.
+  Proof.
+    iApply ltl_eventually_ind; [done|].
+    rewrite ltl_false_next. iDestruct 1 as "[_ $]".
+  Qed.
+
 End ltl_derived_constructs.
 
 Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
