@@ -2,90 +2,6 @@ From iris.bi Require Import fixpoint_mono.
 From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From ltl Require Import ltl ltl_now.
 
-Section after.
-  Context {S L : Type}.
-  Context {Rel : S → L → S → Prop}.
-
-  Fixpoint after (n: nat) (t: trace S L) : (trace S L):=
-    match n,t with
-    | 0,_ => t
-    | _,⟨ ⟩ => ⟨ ⟩
-    | Datatypes.S n, ⟨ s ⟩ => ⟨ ⟩
-    | Datatypes.S n, (s -[ ℓ ]-> xs) => after n (Some xs)
-    end.
-
-  Lemma after_nil n : after n ⟨⟩ = ⟨⟩.
-  Proof. by destruct n. Qed.
-
-  Lemma after_singleton n s : after (Datatypes.S n) ⟨ s ⟩ = ⟨⟩.
-  Proof. done. Qed.
-
-  Lemma after_cons n s l (tr : trace_aux S L) : after (Datatypes.S n) (s -[ l ]-> tr) =  after n (Some tr).
-  Proof. done. Qed.
-
-  Lemma after_sum_comm n m (tr : trace S L) :
-    after n (after m tr) = after m (after n tr).
-  Proof.
-    revert tr m. induction n; intros tr m.
-    { done. }
-    revert n tr IHn.
-    induction m; intros n tr IHn.
-    { done. }
-    destruct tr as [[|s l t]|]; [done| |done].
-    rewrite after_cons.
-    rewrite -IHn.
-    rewrite IHm; [|done].
-    destruct t.
-    + simpl. rewrite !after_nil. done.
-    + simpl. done.
-  Qed.
-
-  Lemma after_sum n m (tr : trace S L) :
-    after (n+m) tr = after n (after m tr).
-  Proof.
-    revert tr m.
-    induction n; intros tr m; [done|].
-    replace (Datatypes.S n + m) with (n + (Datatypes.S m)) by lia.
-    rewrite IHn.
-    replace (Datatypes.S n) with (n + 1) by lia.
-    rewrite IHn.
-    f_equiv.
-    destruct tr as [[]|].
-    - destruct m; done.
-    - rewrite after_cons. rewrite after_sum_comm. done.
-    - simpl. destruct m; done.
-  Qed.
-
-  Lemma trace_wf_after n tr : trace_maximal Rel tr → trace_maximal Rel (after n tr).
-  Proof.
-    intros wf.
-    revert tr wf.
-    induction n; intros tr wf.
-    { done. }
-    replace (Datatypes.S n) with (n+1) by lia.
-    rewrite after_sum.
-    apply IHn.
-    destruct tr as [[]|].
-    - constructor.
-    - simpl. inversion wf; simplify_eq. done.
-    - simpl. constructor.
-  Qed.
-
-  Definition wf_after : nat → wf_trace S L Rel → wf_trace S L Rel :=
-    λ n tr, Trace (after n (tr_car tr)) (trace_wf_after n (tr_car tr) (tr_wf tr)).
-
-  Lemma wf_after_0 tr : wf_after 0 tr = tr.
-  Proof. by destruct tr. Qed.
-
-  Lemma wf_trace_eq (tr1 tr2 : wf_trace S L Rel) :
-    tr_car tr1 = tr_car tr2 → tr1 = tr2.
-  Proof. intros. destruct tr1, tr2. simpl in *. simplify_eq. done. Qed.
-
-  Lemma wf_after_sum n m tr : wf_after (n+m) tr = wf_after n (wf_after m tr).
-  Proof. apply wf_trace_eq. by apply after_sum. Qed.
-
-End after.
-
 Section ltl_adequacy.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
@@ -98,7 +14,7 @@ Section ltl_adequacy.
   Proof. intros. apply H. done. Qed.
 
   Lemma ltl_next_adequate (P : tProp) tr :
-    (○ P)%I tr ≡ P (wf_after 1 tr).
+    (○ P)%I tr ≡ P (wf_tail tr).
   Proof. rewrite ltl_next_unseal. done. Qed.
 
   Lemma ltl_always_adequate (P : tProp) tr :
@@ -114,8 +30,9 @@ Section ltl_adequacy.
       { simpl in *. rewrite wf_after_0. done. }
       simpl in *. rewrite ltl_next_adequate in H.
       apply IHn in H.
-      rewrite -wf_after_sum in H.
-      replace (Datatypes.S n) with (n + 1) by lia. done.
+      (* rewrite -wf_after_sum in H. *)
+      replace (Datatypes.S n) with (n + 1) by lia.
+      rewrite wf_after_sum. done.
     - intros H n.
       specialize (H n).
       revert tr P H.
@@ -124,17 +41,15 @@ Section ltl_adequacy.
       apply ltl_next_iter_S.
       apply IHn.
       rewrite ltl_next_adequate.
-      rewrite -wf_after_sum.
-      done.
+      replace (Datatypes.S n) with (1 + n) in H by lia.
+      rewrite wf_after_sum in H. done.
   Qed.
-
 
   Lemma ltl_eventually_next_equiv (P : tProp) :
     (◊ P)%I ≡ (∃ n : nat, ltl_next_iter n P)%I.
   Proof.
     iSplit.
-    - 
-      iApply ltl_eventually_ind.
+    - iApply ltl_eventually_ind.
       { iIntros "HP". iExists 0. done. }
       iIntros "[HP IH]".
       rewrite ltl_next_exists.
@@ -164,7 +79,8 @@ Section ltl_adequacy.
     { rewrite wf_after_0 in Hn. simpl. done. }
     apply ltl_next_iter_S. apply IHn.
     rewrite ltl_next_adequate.
-    rewrite -wf_after_sum. done.
+    replace (Datatypes.S n) with (1+n) in Hn by lia.
+    rewrite wf_after_sum in Hn. done.
   Qed.
 
   Lemma ltl_eventually_adequate_2 (P : tProp) :

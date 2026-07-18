@@ -33,6 +33,13 @@ Section well_formed.
     | None => None
     end.
 
+  Definition tail_trace (tr : trace S L) : trace S L :=
+    match tr with
+    | Some (tr_singl s) => None
+    | Some (tr_cons s ℓ r) => Some r
+    | None => None
+    end.
+
   CoInductive trace_maximal : trace S L → SProp :=
   | trace_maximal_empty : trace_maximal None
   | trace_maximal_singleton c :
@@ -326,22 +333,22 @@ Section after.
   Context {S L : Type}.
   Context {Rel : S → L → S → Prop}.
 
-  Fixpoint after (n: nat) (t: trace S L) : (trace S L):=
-    match n,t with
-    | 0,_ => t
-    | _,⟨ ⟩ => ⟨ ⟩
-    | Datatypes.S n, ⟨ s ⟩ => ⟨ ⟩
-    | Datatypes.S n, (s -[ ℓ ]-> xs) => after n (Some xs)
+  Fixpoint foo {A} (n : nat) (f : A → A) (x:A) : A :=
+    match n with
+    | 0 => x
+    | Datatypes.S n => foo n f (f x)
     end.
 
-  Lemma after_nil n : after n ⟨⟩ = ⟨⟩.
-  Proof. by destruct n. Qed.
+  Notation after n t := (foo n tail_trace t).
 
-  Lemma after_singleton n s : after (Datatypes.S n) ⟨ s ⟩ = ⟨⟩.
-  Proof. done. Qed.
+  Lemma after_nil n : after n ⟨⟩ = (⟨⟩ : trace S L).
+  Proof. induction n; [done|]. simpl. rewrite IHn. done. Qed.
+
+  Lemma after_singleton n s : after (Datatypes.S n) ⟨ s ⟩ = (⟨⟩ : trace S L).
+  Proof. simpl. apply after_nil. Qed.
 
   Lemma after_cons n s l (tr : trace_aux S L) : after (Datatypes.S n) (s -[ l ]-> tr) =  after n (Some tr).
-  Proof. done. Qed.
+  Proof. simpl. done. Qed.
 
   Lemma after_sum_comm n m (tr : trace S L) :
     after n (after m tr) = after m (after n tr).
@@ -351,13 +358,15 @@ Section after.
     revert n tr IHn.
     induction m; intros n tr IHn.
     { done. }
-    destruct tr as [[|s l t]|]; [done| |done].
-    rewrite after_cons.
-    rewrite -IHn.
-    rewrite IHm; [|done].
-    destruct t.
-    + simpl. rewrite !after_nil. done.
-    + simpl. done.
+    destruct tr as [[|s l t]|].
+    { rewrite !after_singleton. simpl. rewrite !after_nil. done. }
+    - rewrite !after_cons.
+      rewrite -IHn.
+      rewrite IHm; [|done].
+      destruct t.
+      + simpl. rewrite !after_nil. done.
+      + simpl. done.
+    - rewrite !after_nil. done.
   Qed.
 
   Lemma after_sum n m (tr : trace S L) :
@@ -370,11 +379,22 @@ Section after.
     replace (Datatypes.S n) with (n + 1) by lia.
     rewrite IHn.
     f_equiv.
-    destruct tr as [[]|].
-    - destruct m; done.
-    - rewrite after_cons. rewrite after_sum_comm. done.
-    - simpl. destruct m; done.
+    clear n IHn.
+    rewrite after_sum_comm.
+    simpl. done.
   Qed.
+
+  Lemma wf_after_tail_wf tr : trace_maximal Rel tr → trace_maximal Rel (tail_trace tr).
+  Proof.
+    intros wf.
+    destruct tr as [[]|].
+    - constructor.
+    - simpl. inversion wf; simplify_eq. done.
+    - simpl. constructor.
+  Qed.
+
+  Definition wf_tail : wf_trace S L Rel → wf_trace S L Rel :=
+    λ tr, Trace (tail_trace (tr_car tr)) (wf_after_tail_wf (tr_car tr) (tr_wf tr)).
 
   Lemma trace_wf_after n tr : trace_maximal Rel tr → trace_maximal Rel (after n tr).
   Proof.
@@ -382,13 +402,8 @@ Section after.
     revert tr wf.
     induction n; intros tr wf.
     { done. }
-    replace (Datatypes.S n) with (n+1) by lia.
-    rewrite after_sum.
-    apply IHn.
-    destruct tr as [[]|].
-    - constructor.
-    - simpl. inversion wf; simplify_eq. done.
-    - simpl. constructor.
+    simpl. 
+    apply IHn. apply wf_after_tail_wf. done.
   Qed.
 
   Definition wf_after : nat → wf_trace S L Rel → wf_trace S L Rel :=
@@ -404,8 +419,6 @@ Section after.
   Lemma wf_after_sum n m tr : wf_after (n+m) tr = wf_after n (wf_after m tr).
   Proof. apply wf_trace_eq. by apply after_sum. Qed.
 
-  Definition wf_next : wf_trace S L Rel → wf_trace S L Rel := wf_after 1.
-
 End after.
 
 Section ltl_always_constructor.
@@ -415,7 +428,7 @@ Section ltl_always_constructor.
   Notation tProp := (tProp S L Rel).
 
   (* LTL Operators *)
-  Definition ltl_next_def (P : tProp) : tProp := λ tr, P (wf_after 1 tr).
+  Definition ltl_next_def (P : tProp) : tProp := λ tr, P (wf_tail tr).
   Definition ltl_next_aux : seal (@ltl_next_def).
   Proof. by eexists. Qed.
   Definition ltl_next := unseal ltl_next_aux.
