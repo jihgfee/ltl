@@ -192,11 +192,11 @@ Section ltl_now_state_label_lemmas.
     - eexists l0, s''. econstructor; [done|].
       econstructor.
       + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor. done.
-      + rewrite ltl_next_unseal. econstructor. econstructor. done.
+      + rewrite ltl_next_unseal. econstructor. econstructor.
     - eexists l0, s''. econstructor; [done|].
       econstructor.
       + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor. done.
-      + rewrite ltl_next_unseal. econstructor. econstructor. done.
+      + rewrite ltl_next_unseal. econstructor. econstructor.
         Unshelve. all: by inversion tr_wf.
   Qed.
 

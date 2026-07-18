@@ -415,10 +415,7 @@ Section ltl_always_constructor.
   Notation tProp := (tProp S L Rel).
 
   (* LTL Operators *)
-  Inductive ltl_next_def (P : tProp) : tProp :=
-  | ltl_next_empty H2 : (P (⟨⟩ @ H2)) -> ltl_next_def P (⟨⟩ @ H2)
-  | ltl_next_single s H2 : P (wf_next (⟨s⟩ @ H2)) -> ltl_next_def P (⟨s⟩ @ H2)
-  | ltl_next_cons s l tr H2 : (P (wf_next ((s -[ l ]-> tr) @ H2))) → ltl_next_def P ((s -[ l ]-> tr) @ H2).
+  Definition ltl_next_def (P : tProp) : tProp := λ tr, P (wf_after 1 tr).
   Definition ltl_next_aux : seal (@ltl_next_def).
   Proof. by eexists. Qed.
   Definition ltl_next := unseal ltl_next_aux.
@@ -508,7 +505,7 @@ Section ltl_always_lemmas.
     rewrite ltl_next_unseal.
     constructor.
     intros.
-    constructor; inversion 1; simplify_eq; econstructor; by apply H.
+    destruct tr as [[[]|]]; split; intros; simplify_eq; simpl in *; by apply H.
   Qed.
 
   Lemma ltl_always_ne : NonExpansive (@ltl_always S L Rel).
@@ -547,7 +544,7 @@ Section ltl_always_lemmas.
     intros [HP].
     constructor.
     intros tr _.
-    destruct tr as [[[]|]]; econstructor; intros; eapply HP; done.
+    destruct tr as [[[]|]]; intros; eapply HP; done.
   Qed.
 
   (* K○ *)
@@ -556,9 +553,8 @@ Section ltl_always_lemmas.
   Proof.
     unseal.
     constructor.
-    intros [tr wf] HPQ HP.
-    inversion HP; inversion HPQ; simplify_eq; econstructor; try naive_solver.
-    apply H4. done.
+    intros tr HPQ HP.
+    destruct tr as [[[]|]]; simpl in *; by apply HPQ.
   Qed.
 
   Lemma ltl_always_next_unfold P :
@@ -619,12 +615,12 @@ Section ltl_always_lemmas.
   Proof.
     unseal.
     constructor. intros tr Hnext. destruct tr as [[[]|]].
-    - simplify_eq. econstructor. intros x. specialize (Hnext x).
-      inversion Hnext. simplify_eq. done.
-    - simplify_eq. econstructor. intros x. specialize (Hnext x).
-      inversion Hnext. simplify_eq. done.
-    - simplify_eq. econstructor. intros x. specialize (Hnext x).
-      inversion Hnext. simplify_eq. done.
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
   Qed.
 
   Lemma ltl_next_forall_2 {A} (P : A → tProp) :
@@ -632,12 +628,12 @@ Section ltl_always_lemmas.
   Proof.
     unseal.
     constructor. intros tr Hnext. destruct tr as [[[]|]].
-    - simplify_eq. econstructor. inversion Hnext. simplify_eq.
-      intros. apply H0.
-    - simplify_eq. econstructor. inversion Hnext. simplify_eq.
-      intros. apply H0.
-    - simplify_eq. econstructor. inversion Hnext. simplify_eq.
-      intros. apply H.
+    - simplify_eq. simplify_eq.
+      intros. apply Hnext.
+    - simplify_eq. simplify_eq.
+      intros. apply Hnext.
+    - simplify_eq. simplify_eq.
+      intros. apply Hnext.
   Qed.
 
   Lemma ltl_always_unfold_pre_1 (P : tProp) :
@@ -961,14 +957,13 @@ Global Instance ltl_next_mono' {S L Rel} :
 Proof.
   rewrite ltl_next_unseal.
   constructor.
-  inversion 1; simplify_eq; econstructor; by apply H.
+  intros. by apply H.
 Qed.
 Global Instance ltl_next_flip_mono' {S L Rel} :
   Proper (flip (⊢) ==> flip (⊢)) (@ltl_next S L Rel).
 Proof.
   rewrite ltl_next_unseal.
-  constructor.
-  inversion 1; simplify_eq; econstructor; by apply H.
+  constructor. intros. by apply H.
 Qed.
 
 Section ltl_lemmas.
@@ -1044,16 +1039,13 @@ Section ltl_lemmas.
     split. intros tr. unseal. ltl_unseal.
     split.
     - intros. destruct tr as [[[]|]].
-      + econstructor. intros HP. eapply H. econstructor. done.
-      + econstructor. intros HP. eapply H. econstructor. done.
-      + econstructor. intros HP. eapply H. econstructor. done.
+      + intros HP. eapply H. done.
+      + intros HP. eapply H. done.
+      + intros HP. eapply H. done.
     - intros. destruct tr as [[[]|]].
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H1. done.
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H1. done.
-      + intros HP. inversion H; subst. inversion HP; subst.
-        eapply H0. done.
+      + intros HP. apply H. apply HP.
+      + intros HP. apply H. apply HP.
+      + intros HP. apply H. apply HP.
   Qed.
 
   (* TODO: Unclear if we cannot derive this, but does not seem derivable without EM. *)
@@ -1062,9 +1054,7 @@ Section ltl_lemmas.
   Proof.
     unseal. ltl_unseal.
     constructor. intros tr Hnext. inversion Hnext.
-    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
-    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
-    - simplify_eq. destruct H as [a H]. exists a. econstructor. apply H.
+    eexists _. apply H.
   Qed.
 
 End ltl_lemmas.

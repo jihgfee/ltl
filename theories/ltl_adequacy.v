@@ -99,12 +99,7 @@ Section ltl_adequacy.
 
   Lemma ltl_next_adequate (P : tProp) tr :
     (○ P)%I tr ≡ P (wf_after 1 tr).
-  Proof.
-    rewrite ltl_next_unseal.
-    split.
-    - intros. by inversion H; simplify_eq.
-    - intros. destruct tr as [[[]|]]; by econstructor.
-  Qed.
+  Proof. rewrite ltl_next_unseal. done. Qed.
 
   Lemma ltl_always_adequate (P : tProp) tr :
     (□ P)%I tr ≡ ∀ n, P (wf_after n tr).
