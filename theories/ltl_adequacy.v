@@ -120,8 +120,8 @@ Section ltl_adequacy.
     (↓ P)%I tr ≡ P $ head_trace (tr_car tr).
   Proof.
     rewrite ltl_now_unseal. split.
-    - intros. inversion H; simplify_eq; done.
-    - intros. destruct tr as [[[]|]]; by econstructor.
+    - intros. simplify_eq; done.
+    - intros. destruct tr as [[[]|]]; done.
   Qed.
 
   Lemma ltl_now_f_adequate {A} f (x : A) (tr : wf_trace S L Rel) :

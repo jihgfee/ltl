@@ -9,12 +9,18 @@ Section ltl_primitives.
 
   Notation tProp := (tProp S L Rel).
 
+  (* TODO: Move *)
+  Definition wf_head_trace (tr : wf_trace S L Rel) : option (S * option L) :=
+    head_trace (tr_car tr).
+
   (* LTL Operators *)
   (* Primitive operators *)
-  Inductive ltl_now_def (P : option (S * option L) → Prop) : tProp :=
-  | ltl_now_nil H : P None → ltl_now_def P (⟨⟩ @ H)
-  | ltl_now_single s H : P (Some (s, None)) → ltl_now_def P (⟨s⟩ @ H)
-  | ltl_now_cons s l tr H : P (Some (s,Some l)) → ltl_now_def P ((s -[ l ]-> tr) @ H).
+  Definition ltl_now_def (P : option (S * option L) → Prop) : tProp :=
+    λ tr, P (wf_head_trace tr).
+  (* Inductive ltl_now_def (P : option (S * option L) → Prop) : tProp := *)
+  (* | ltl_now_nil H : P None → ltl_now_def P (⟨⟩ @ H) *)
+  (* | ltl_now_single s H : P (Some (s, None)) → ltl_now_def P (⟨s⟩ @ H) *)
+  (* | ltl_now_cons s l tr H : P (Some (s,Some l)) → ltl_now_def P ((s -[ l ]-> tr) @ H). *)
   Definition ltl_now_aux : seal (@ltl_now_def).
   Proof. by eexists. Qed.
   Definition ltl_now := unseal ltl_now_aux.
@@ -36,7 +42,7 @@ Section ltl_now_lemmas.
     (∀ osl, P osl → Q osl) → ↓ P ⊢ (↓ Q):tProp.
   Proof.
     intros HPQ. rewrite ltl_now_unseal.
-    constructor. intros [[[]|]]; inversion 1; try constructor; by apply HPQ.
+    constructor. intros [[[]|]]; by apply HPQ.
   Qed.
 
   Lemma ltl_now_not (P : option (S * option L) → Prop) :
@@ -46,9 +52,9 @@ Section ltl_now_lemmas.
     constructor.
     intros.
     destruct tr as [[[]|]].
-    - econstructor. intros HP. apply H. constructor. done.
-    - econstructor. intros HP. apply H. constructor. done.
-    - econstructor. intros HP. apply H. constructor. done.
+    - intros HP. apply H. done.
+    - intros HP. apply H. done.
+    - intros HP. apply H. done.
   Qed.
 
   Lemma ltl_now_and P Q :
@@ -57,8 +63,8 @@ Section ltl_now_lemmas.
     rewrite ltl_now_unseal. unseal.
     split. intros. split.
     - intros [HP HQ].
-      inversion HP; inversion HQ; simplify_eq; constructor; split; eauto.
-    - intros. split; inversion H; destruct H1; simplify_eq; constructor; eauto.
+      simplify_eq; split; eauto.
+    - intros. split; simplify_eq; eauto; apply H; done.
   Qed.
 
   Lemma ltl_now_false (P Q : option (S *option L) → Prop) :
@@ -66,13 +72,7 @@ Section ltl_now_lemmas.
   Proof. unseal. rewrite ltl_now_unseal.
          intros HPQ. constructor.
          intros tr _ HP HQ.
-         destruct tr as [[[]|]]; eapply (HPQ); simpl in *.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
-         - by inversion HP.
-         - by inversion HQ.
+         destruct tr as [[[]|]]; eapply (HPQ); simpl in *; done.
   Qed.
 
   Lemma ltl_now_pure (P : option (S * option L) → Prop) :
@@ -80,7 +80,7 @@ Section ltl_now_lemmas.
   Proof.
     rewrite ltl_now_unseal. unseal.
     constructor.
-    intros. inversion H; simplify_eq; eexists _; eauto.
+    intros. simplify_eq; eexists _; eauto.
   Qed.
 
 End ltl_now_lemmas.
@@ -152,7 +152,7 @@ Section ltl_now_state_label_lemmas.
     constructor.
     rewrite /ltl_now_state /ltl_now_state_f ltl_now_unseal.
     unseal.
-    intros tr _ H2 H3. inversion H2; inversion H3; simplify_eq; try done.
+    intros [[[]|]] _ H2 H3; inversion H2; simplify_eq; try done.
   Qed.
 
   Lemma ltl_now_lbl_agree (x y : L) :
@@ -161,7 +161,7 @@ Section ltl_now_state_label_lemmas.
     constructor.
     rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal.
     unseal.
-    intros tr _ H2 H3. inversion H2; inversion H3; simplify_eq; try done.
+    intros [[[]|]] _ H2 H3; inversion H2; inversion H3; simplify_eq; try done.
   Qed.
 
   Lemma trace_steps `{HRel: LTL S L Rel} (s:S) :
@@ -172,31 +172,32 @@ Section ltl_now_state_label_lemmas.
     constructor.
     intros [[tr|] tr_wf]; last first.
     { unseal. rewrite /ltl_now_state /ltl_now_state_f ltl_now_unseal.
-      intros Hnow. inversion Hnow. done. }
+      intros Hnow. inversion Hnow. }
     unseal. rewrite /ltl_now_state /ltl_now_state_f ltl_now_unseal.
-    intros Hnow. inversion Hnow; simpl in *; simplify_eq.
+    intros Hnow.
+    destruct tr as [|]; inversion Hnow; simpl in *; simplify_eq.
     { exfalso. apply empty_ind. inversion tr_wf. subst. specialize (H0 l s'). done. }
     clear Hsteps.
-    assert (∃ c', fst <$> head_trace (Some tr0) = Some c' ∧ Rel s l0 c') as Hwf.
-    { destruct tr0.
+    assert (∃ c', fst <$> head_trace (Some tr) = Some c' ∧ Rel s ℓ c') as Hwf.
+    { destruct tr.
       { exists s0. split; [done|].
-        destruct (decide (Rel s l0 s0)); [done|].
+        destruct (decide (Rel s ℓ s0)); [done|].
         exfalso. apply empty_ind. inversion tr_wf. simplify_eq.
         simpl in *. simplify_eq. done. }
       exists s0. split; [done|].
-      destruct (decide (Rel s l0 s0)); [done|].
+      destruct (decide (Rel s ℓ s0)); [done|].
       exfalso. apply empty_ind. inversion tr_wf. simplify_eq.
       simpl in *. simplify_eq. done. }
     destruct Hwf as (s''&Hhead&Hrel).
-    destruct tr0; simpl in *; simplify_eq.
-    - eexists l0, s''. econstructor; [done|].
+    destruct tr; simpl in *; simplify_eq.
+    - eexists ℓ, s''. econstructor; [done|].
       econstructor.
-      + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor. done.
-      + rewrite ltl_next_unseal. econstructor. econstructor.
-    - eexists l0, s''. econstructor; [done|].
+      + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor.
+      + rewrite ltl_next_unseal. econstructor. 
+    - eexists ℓ, s''. econstructor; [done|].
       econstructor.
-      + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor. done.
-      + rewrite ltl_next_unseal. econstructor. econstructor.
+      + rewrite /ltl_now_label /ltl_now_label_f ltl_now_unseal. econstructor.
+      + rewrite ltl_next_unseal. econstructor.
         Unshelve. all: by inversion tr_wf.
   Qed.
 
@@ -216,9 +217,9 @@ Section ltl_now_state_label_lemmas.
     rewrite ltl_now_unseal. intros.
     destruct tr. destruct tr_car.
     - destruct t; exists s; eauto.
-      + econstructor. done.
-      + econstructor. done.
-    - inversion H. apply HP in H1. done.
+      + econstructor.
+      + econstructor.
+    - apply HP in H. inversion H. simplify_eq.
   Qed.
 
   Lemma ltl_lbl P :
@@ -227,11 +228,11 @@ Section ltl_now_state_label_lemmas.
     econstructor. unseal. rewrite /ltl_now_state /ltl_now_state_f /ltl_now_label.
     rewrite ltl_now_unseal. intros.
     destruct tr. destruct tr_car.
-    - inversion H0; simplify_eq.
-      + apply H in H3. destruct H3 as (?&?&?&?). simplify_eq. done.
+    - destruct t.
+      + apply H in H0. destruct H0 as (?&?&?&?). inversion H0. simplify_eq. done.
       + rewrite /ltl_now_label_f /ltl_now_label ltl_now_unseal.
-        exists l. econstructor. done.
-    - inversion H0.  apply H in H2. destruct H2 as (?&?&?&?). simplify_eq.
+        exists ℓ. econstructor.
+    - apply H in H0. destruct H0 as (?&?&?&?). simplify_eq.
   Qed.
 
   Lemma ltl_now_state_f_frame {A} (f : S → A) x :
