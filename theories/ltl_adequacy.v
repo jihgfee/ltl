@@ -110,76 +110,67 @@ Section ltl_adequacy.
     (□ P)%I tr ≡ ∀ n, P (wf_after n tr).
   Proof.
     rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.
+    rewrite /ltl_always_def. unseal.
     split.
     - intros.
-      revert tr H.
-      induction n; intros tr H.
-      { by inversion H; simplify_eq. }
-      inversion H; simplify_eq; try done.
-      by apply IHn in H4.
-    - intros.
-      revert tr H. cofix IH. intros tr H.
-      destruct tr as [[[]|]].
-      + pose proof (H 0).
-        pose proof (H 1).
-        rewrite /wf_after in H0.
-        rewrite /wf_after in H1.
-        simpl in *.
-        econstructor; [apply H0|apply H1].
-      + pose proof (H 0). econstructor; [apply H0|]. apply IH.
-        intros n. specialize (H (Datatypes.S n)). done.
-      + pose proof (H 0). econstructor. apply H0.
-     Unshelve. by inversion tr_wf.
+      specialize (H n). simpl in *.
+      revert P tr H.
+      induction n; intros P tr H.
+      { simpl in *. rewrite wf_after_0. done. }
+      simpl in *. rewrite ltl_next_adequate in H.
+      apply IHn in H.
+      rewrite -wf_after_sum in H.
+      replace (Datatypes.S n) with (n + 1) by lia. done.
+    - intros H n.
+      specialize (H n).
+      revert tr P H.
+      induction n; intros tr P H.
+      { simpl in *. rewrite wf_after_0 in H. done. }
+      apply ltl_next_iter_S.
+      apply IHn.
+      rewrite ltl_next_adequate.
+      rewrite -wf_after_sum.
+      done.
+  Qed.
+
+
+  Lemma ltl_eventually_next_equiv (P : tProp) :
+    (◊ P)%I ≡ (∃ n : nat, ltl_next_iter n P)%I.
+  Proof.
+    iSplit.
+    - 
+      iApply ltl_eventually_ind.
+      { iIntros "HP". iExists 0. done. }
+      iIntros "[HP IH]".
+      rewrite ltl_next_exists.
+      iDestruct "IH" as (n) "IH".
+      iExists (Datatypes.S n).
+      simpl.
+      iIntros "!>".
+      done.
+    - iDestruct 1 as (x) "H".
+      iInduction x as [|n Hn].
+      { iModUnIntro. done. }
+      iApply ltl_next_eventually.
+      simpl. iModIntro.
+      by iApply "Hn".
   Qed.
 
   (* TODO: Clean up this proof *)
   Lemma ltl_eventually_adequate_1 (P : tProp) tr :
     (∃ n, P (wf_after n tr)) → (◊ P)%I tr.
-  Proof.
-    rewrite ltl_until_unseal.
-    rewrite /ltl_until_def.
-    rewrite /bi_least_fixpoint.
-    simpl.
-    unseal.
-    intros.
+  Proof. 
+    intros H.
+    apply ltl_eventually_next_equiv.
     destruct H as [n Hn].
-    revert tr Hn. induction n; intros tr Hn.
-    { intros Φ HP.
-      rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
-      inversion HP; simplify_eq.
-      + apply H. rewrite /ltl_until_F.
-        unseal. left. apply Hn.
-      + apply H. rewrite /ltl_until_F.
-        unseal.
-        left. apply Hn.
-      + apply H. rewrite /ltl_until_F.
-        unseal.
-        left. apply Hn. }
-    intros Φ HP.
-    rewrite bi_intuitionistically_unseal' in HP. rewrite ltl_always_unseal in HP.
-    inversion HP; simplify_eq.
-    + apply H. rewrite /ltl_until_F.
-      unseal. left. apply Hn.
-    + apply H. rewrite /ltl_until_F.
-      unseal. right.
-      split; [done|].
-      rewrite ltl_next_unseal. econstructor.
-      eapply H0. rewrite /ltl_until_F. unseal. left.
-      apply Hn.
-    + apply H. rewrite /ltl_until_F.
-      unseal. right.
-      split; [done|].
-      rewrite ltl_next_unseal. econstructor.
-      apply IHn; [apply Hn|].
-      rewrite bi_intuitionistically_unseal'. rewrite ltl_always_unseal.
-      apply H0.
+    unseal. exists n.
+    revert tr P Hn.
+    induction n; intros tr P Hn.
+    { rewrite wf_after_0 in Hn. simpl. done. }
+    apply ltl_next_iter_S. apply IHn.
+    rewrite ltl_next_adequate.
+    rewrite -wf_after_sum. done.
   Qed.
-
-  Fixpoint ltl_next_iter (n : nat) (P : tProp) : tProp :=
-    match n with
-    | 0 => P
-    | Datatypes.S n => ○ ltl_next_iter n P
-    end.
 
   Lemma ltl_eventually_adequate_2 (P : tProp) :
     (◊ P)%I ⊢ ∃ n : nat, ltl_next_iter n P.
