@@ -26,29 +26,33 @@ Section well_formed.
   Context {S L : Type}.
   Context (R : S → L → S → Prop).
 
-  Definition head_trace (tr : trace S L) : option (S * option L) :=
+  Definition head_trace' (tr : trace_aux S L) : S * option L :=
     match tr with
-    | Some (tr_singl s) => Some (s, None)
-    | Some (tr_cons s ℓ r) => Some (s, Some ℓ)
-    | None => None
+    | tr_singl s => (s, None)
+    | tr_cons s ℓ tr => (s, Some ℓ)
     end.
 
-  Definition tail_trace (tr : trace S L) : trace S L :=
+  Definition head_trace : trace S L → option (S * option L) :=
+    fmap head_trace'.
+
+  Definition tail_trace' (tr : trace_aux S L) : option (trace_aux S L) :=
     match tr with
-    | Some (tr_singl s) => None
-    | Some (tr_cons s ℓ r) => Some r
-    | None => None
+    | tr_singl s => None
+    | tr_cons s ℓ r => Some r
     end.
+
+  Definition tail_trace : trace S L → trace S L :=
+    mbind tail_trace'.
 
   CoInductive trace_maximal : trace S L → SProp :=
   | trace_maximal_empty : trace_maximal None
   | trace_maximal_singleton c :
     (∀ oζ c', ¬ R c oζ c') → trace_maximal (Some $ tr_singl c)
-  | trace_maximal_cons c oζ tr c' :
+  | trace_maximal_cons c l tr c' :
     fst <$> head_trace (Some tr) = Some c' →
-    R c oζ c' →
+    R c l c' →
     trace_maximal (Some tr) →
-    trace_maximal (Some $ tr_cons c oζ tr).
+    trace_maximal (Some $ tr_cons c l tr).
 
 End well_formed.
 
@@ -456,6 +460,7 @@ End ltl_always_constructor.
 Global Instance: Params (@ltl_next) 2 := {}.
 
 Notation "○ P" := (ltl_next P%I) (at level 20, right associativity) : bi_scope.
+Notation "○^ n P" := (ltl_next_iter n P%I) (at level 20, n at level 9, P at level 20, format "○^ n  P") : bi_scope.
 
 Section ltl_always_lemmas.
   Context {S L : Type}.
@@ -490,7 +495,7 @@ Section ltl_always_lemmas.
   Notation "□ P" := (ltl_always P) : bi_scope.
 
   Lemma ltl_next_iter_sum n m (P : tProp) :
-    ltl_next_iter (n+m) P ≡ ltl_next_iter n (ltl_next_iter m P).
+    (○^(n+m) P)%I ≡ (○^n (○^ m P))%I.
   Proof.
     revert m P.
     induction n; intros m P; [done|].
@@ -503,7 +508,7 @@ Section ltl_always_lemmas.
   Qed.
 
   Lemma ltl_next_iter_S n (P : tProp) :
-    ltl_next_iter (Datatypes.S n) P ≡ ltl_next_iter n (○ P).
+    (○^(Datatypes.S n) P)%I ≡ (○^n (○ P))%I.
   Proof. replace (Datatypes.S n) with (n + 1) by lia.
          rewrite ltl_next_iter_sum. done. Qed.
 
@@ -571,7 +576,7 @@ Section ltl_always_lemmas.
   Qed.
 
   Lemma ltl_always_next_unfold P :
-    (□ P = ∀ n, ltl_next_iter n P)%I.
+    (□ P = ∀ n, ○^n P)%I.
   Proof. rewrite ltl_always_unseal. unseal. rewrite /ltl_always_def. unseal. done. Qed.
 
   (* N□ *)
@@ -634,19 +639,6 @@ Section ltl_always_lemmas.
       simplify_eq. done.
     - simplify_eq. intros x. specialize (Hnext x).
       simplify_eq. done.
-  Qed.
-
-  Lemma ltl_next_forall_2 {A} (P : A → tProp) :
-    (○ ∀ x, P x)%I ⊢ ∀ x, ○ P x.
-  Proof.
-    unseal.
-    constructor. intros tr Hnext. destruct tr as [[[]|]].
-    - simplify_eq. simplify_eq.
-      intros. apply Hnext.
-    - simplify_eq. simplify_eq.
-      intros. apply Hnext.
-    - simplify_eq. simplify_eq.
-      intros. apply Hnext.
   Qed.
 
   Lemma ltl_always_unfold_pre_1 (P : tProp) :
@@ -1094,6 +1086,10 @@ Section ltl_derived_rules.
     □ (P → ○ P) ⊢ P → □ P.
   Proof. rewrite !bi_intuitionistically_unseal. apply ltl_always_intro_pre. Qed.
 
+  (* Lemma ltl_always_coind (P : tProp) : *)
+  (*   □ (P → ○ P) ⊢ P → □ P. *)
+  (* Proof. rewrite !bi_intuitionistically_unseal. apply ltl_always_intro_pre. Qed. *)
+
   Lemma ltl_always_elim (P : tProp) :
     □ P ⊢ P.
   Proof. rewrite ltl_always_unfold. iIntros "[$ _]". Qed.
@@ -1331,6 +1327,72 @@ Section ltl_derived_constructs.
   Context {Rel : S → L → S → Prop}.
 
   Notation tProp := (tProp S L Rel).
+
+  (* LTL Next Iter *)
+  Lemma ltl_next_iter_mono n (P Q : tProp) :
+    ○^n (P → Q) ⊢ ○^n P → ○^n Q.
+  Proof.
+    iIntros "HPQ HP".
+    iInduction n as [|n IHn].
+    { by iApply "HPQ". }
+    simpl in *.
+    iModIntro.
+    iApply ("IHn" with "HPQ HP").
+  Qed.
+
+  Global Instance ltl_next_iter_proper n : Proper ((≡) ==> (≡)) (@ltl_next_iter S L Rel n).
+  Proof.
+    intros P Q Heq.
+    induction n.
+    { simpl. done. } 
+    simpl. f_equiv. done.
+  Qed.
+
+  Lemma ltl_iter_forall (P:tProp) :
+    (∀ n, ○^n P)%I ⊢ ○ (∀ n, ○^n P).
+  Proof.
+    iIntros "HP". rewrite -ltl_next_forall_1. iIntros (n).
+    iSpecialize ("HP" $! (Datatypes.S n)). done.
+  Qed.
+
+  Lemma ltl_always_unseal' (P:tProp) : 
+    (□ P)%I ≡ (∀ n, ○^n P)%I.
+  Proof.   
+    rewrite !bi_intuitionistically_unseal.
+    rewrite ltl_always_unseal.
+    done.
+  Qed.
+
+  Lemma ltl_always_coind (P Q : tProp) :
+    □ (P → (Q ∧ ○ (P ∨ □ Q))) ⊢ P → □ Q.
+  Proof.
+    rewrite !ltl_always_unseal'.
+    iIntros "H".
+    iEval (rewrite !ltl_always_unseal').
+    iIntros "HP" (n).
+    iInduction n as [|n IHn] forall (P Q).
+    { simpl. iSpecialize ("H" $! 0). iDestruct ("H" with "HP") as "[HQ _]". done. }
+    replace (Datatypes.S n) with (1 + n) by lia.
+    rewrite !ltl_next_iter_sum.
+    iDestruct (ltl_dup with "H") as "[H H']".
+    iSpecialize ("H" $! 0). simpl.
+    iDestruct ("H" with "HP") as "[HQ H]".
+    rewrite ltl_iter_forall.
+    iModIntro.
+    iDestruct "H" as "[HP|HQ]"; last first.
+    { rewrite {2}ltl_always_unseal'. iApply "HQ". }
+    iApply ("IHn" with "[H'] HP").
+    iIntros (m).
+    iApply "H'".
+  Qed.
+
+  Lemma ltl_always_intro_alt (P : tProp) :
+    □ (P → ○ P) ⊢ P → □ P.
+  Proof.
+    iIntros "#IH HP". iApply (ltl_always_coind with "[] HP").
+    iIntros "!> HP". iSplit; [done|]. iDestruct ("IH" with "HP") as "HP".
+    iModIntro. iLeft. done.
+  Qed.
 
   (* Until *)
   Definition ltl_until_F (P Q : tProp) : (() → tProp) → (() → tProp) :=
