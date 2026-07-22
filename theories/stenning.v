@@ -101,19 +101,19 @@ Section stenning_ex.
   Lemma stenning_A : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stA, ↓sA stA : tProp.
   Proof.
     iDestruct 1 as "[[% H]|[% H]]".
-    - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+    - destruct s. iDestruct "H" as "[$ _]".
     - iDestruct (ltl_st with "H") as ([]) "H".
       { intros [[]|]; naive_solver. }
-      rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]".
+      iDestruct "H" as "[$ _]".
   Qed.
 
   Lemma stenning_B : (∃ s, ↓s s) ∨ (∃ l, ↓l l) ⊢ ∃ stB, ↓sB stB : tProp.
   Proof.
     iDestruct 1 as "[[% H]|[% H]]".
-    - destruct s. rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+    - destruct s. iDestruct "H" as "[_ $]".
     - iDestruct (ltl_st with "H") as ([]) "H".
       { intros [[]|]; naive_solver. }
-      rewrite -ltl_now_prod_and. iDestruct "H" as "[_ $]".
+      iDestruct "H" as "[_ $]".
   Qed.
 
   Lemma stenning_st_lbl s : ↓s s ⊢ ∃ l, ↓l l : tProp.
@@ -130,12 +130,10 @@ Section stenning_ex.
     - iDestruct (stenning_st_lbl with "H") as (l) "H".
       iDestruct (ltl_lbl with "H") as ([]) "H".
       { intros [[?[]]|] H; try naive_solver. }
-      rewrite -ltl_now_label_prod_and.
       iDestruct "H" as "[? ?]"; iFrame.
       destruct a; iFrame.
     - iDestruct (ltl_lbl with "H") as ([]) "H".
       { intros [[?[]]|] H; try naive_solver. }
-      rewrite -ltl_now_label_prod_and.
       iDestruct "H" as "[? ?]"; iFrame.
       destruct a; iFrame.
   Qed.
@@ -714,7 +712,6 @@ Section stenning_ex.
     intros Htr'.
     apply Htr in Htr'.
     destruct Htr' as [n Hn].
-    rewrite /ltl_now_label in Hn.
     rewrite ltl_now_label_f_adequate in Hn.
     rewrite option_fmap_id in Hn.
     eauto.

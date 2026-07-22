@@ -125,7 +125,7 @@ Section ltl_adequacy.
   Lemma ltl_now_f_adequate {A} f (x : A) (tr : wf_trace S L Rel) :
     (↓fs f x)%I tr ≡ (f <$> (fst <$> head_trace (tr_car tr)) = Some x).
   Proof.
-    rewrite /ltl_now_state_f_eq /ltl_now_state_f /ltl_now_proj. rewrite ltl_now_adequate.
+    rewrite ltl_now_adequate.
     split.
     - intros. destruct tr as [[[]|]]; simpl in *; simplify_eq; try eauto; try done.
     - intros. destruct tr as [[[]|]]; inversion H; simplify_eq; try eauto; try done.
@@ -134,7 +134,7 @@ Section ltl_adequacy.
   Lemma ltl_now_label_f_adequate {A} f (x : A) (tr : wf_trace S L Rel) :
     (↓fl f x)%I tr ≡ (f <$> mjoin (snd <$> head_trace (tr_car tr)) = Some x).
   Proof.
-    rewrite /ltl_now_label_f_eq /ltl_now_label_f /ltl_now_proj. rewrite ltl_now_adequate.
+    rewrite ltl_now_adequate.
     split.
     - intros. destruct tr as [[[]|]]; simpl in *; simplify_eq; try eauto; try done.
     - intros. destruct tr as [[[]|]]; inversion H; simplify_eq; try eauto; try done.

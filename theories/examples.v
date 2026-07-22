@@ -316,7 +316,7 @@ Section advanced_ex.
     { iApply "IHj".
       { instantiate (1:=i+1). rewrite -H1. iPureIntro. lia. }
       { iPureIntro. lia. }
-      rewrite -ltl_now_prod_and. iDestruct "H" as "[$ _]". }
+      iDestruct "H" as "[$ _]". }
     by iApply ltl_next_eventually.
   Qed.
 
