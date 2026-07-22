@@ -1,6 +1,4 @@
-From iris.bi Require Import fixpoint_mono.
-From iris.proofmode Require Import coq_tactics reduction spec_patterns.
-From ltl Require Import ltl ltl_now.
+From ltl Require Import ltl ltl_fixpoints ltl_now.
 
 Section ltl_adequacy.
   Context {S L : Type}.
@@ -60,7 +58,7 @@ Section ltl_adequacy.
       done.
     - iDestruct 1 as (x) "H".
       iInduction x as [|n Hn].
-      { iModUnIntro. done. }
+      { iModIntro. done. }
       iApply ltl_next_eventually.
       simpl. iModIntro.
       by iApply "Hn".

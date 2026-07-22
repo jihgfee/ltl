@@ -18,7 +18,9 @@
 -arg -w -arg -notation-for-abbreviation
 -arg -w -arg -masking-absolute-name
 
+theories/trace.v
 theories/ltl.v
+theories/ltl_fixpoints.v
 theories/ltl_now.v
 theories/ltl_adequacy.v
 theories/classical.v

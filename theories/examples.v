@@ -1,4 +1,4 @@
-From ltl Require Import ltl ltl_now.
+From ltl Require Import ltl ltl_fixpoints ltl_now.
 
 Import tProp.
 
@@ -43,7 +43,7 @@ Section examples.
     iIntros "#HP HQ".
     iApply (ltl_eventually_ind_strong with "[] HQ").
     iIntros "!> [HQ|[H IH]]".
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iEval (rewrite ltl_until_unfold).
     iRight. iFrame "#". iModIntro. done.
   Qed.
@@ -56,7 +56,7 @@ Section examples.
     iRevert "HP".
     iApply (ltl_eventually_ind_strong with "[] HR").
     iIntros "!> [HQ|[H IH]] HP".
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iEval (rewrite ltl_until_unfold).
     iRight. iSplit; [done|].
     iDestruct "HP" as "[HP|HQ]".
@@ -176,7 +176,7 @@ Section examples.
     iDestruct ("HPQ" with "HP") as "#HQ".
     iMod "HQR".
     iDestruct ("HQR" with "HQ") as "HR".
-    by iModUnIntro.
+    by iModIntro.
   Qed.
 
   Lemma foo'' (P Q R : nat → tProp) :
@@ -186,7 +186,7 @@ Section examples.
     iIntros "(HP & #HPQ & HQR)".
     iModIntro. iDestruct "HP" as (n) "HP".
     iDestruct ("HPQ" with "HP") as (m) "#HQ".
-    iMod "HQR". iModUnIntro. by iApply "HQR".
+    iMod "HQR". iModIntro. by iApply "HQR".
   Qed.
 
 End examples.
@@ -223,7 +223,7 @@ Section simple_ex.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. } 
     iInduction j as [|j IH] forall (i H1 H2).
-    { simplify_eq. rewrite right_id. iIntros "H". by iModUnIntro. }
+    { simplify_eq. rewrite right_id. iIntros "H". by iModIntro. }
     iIntros "H".
     iDestruct (step with "H") as "H".
     iApply ltl_next_eventually. iModIntro.

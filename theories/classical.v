@@ -1,5 +1,5 @@
-From ltl Require Import ltl.
 From Stdlib.Logic Require Import ClassicalFacts.
+From ltl Require Import ltl ltl_fixpoints.
 
 Axiom excluded_middle : ∀ P, P ∨ ¬ P.
 

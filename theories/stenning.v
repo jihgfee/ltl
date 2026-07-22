@@ -1,4 +1,4 @@
-From ltl Require Import ltl ltl_now ltl_adequacy classical.
+From ltl Require Import ltl ltl_fixpoints ltl_now ltl_adequacy classical.
 
 Import tProp.
 
@@ -261,11 +261,11 @@ Section stenning_ex.
     iDestruct (fair_sched A) as "Hl".
     iApply (ltl_eventually_ind_strong with "[] Hl").
     iIntros "!> [H|[H IH]] Hs".
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
     { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iExists _. iFrame. }
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iDestruct (stenning_A_B with "[$Hs $HB]") as "Hs".
     iEval (rewrite -ltl_next_eventually). iModIntro.
     by iApply "IH".
@@ -277,13 +277,13 @@ Section stenning_ex.
     iDestruct (fair_sched B) as "Hl".
     iApply (ltl_eventually_ind_strong with "[] Hl").
     iIntros "!> [H|[H IH]] Hs".
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
     { iLeft. iDestruct (ltl_now_prod_snd with "Hs'") as (?) "Hs'". iExists _. iFrame. }
     - iDestruct (stenning_B_A with "[$Hs $HA]") as "Hs".
       iEval (rewrite -ltl_next_eventually). iModIntro. by iApply "IH".
-    - iModUnIntro. iFrame.
+    - iModIntro. iFrame.
   Qed.
 
   Lemma stenning_A_send i :
@@ -297,7 +297,7 @@ Section stenning_ex.
     { iIntros "H'". iDestruct "H1" as "HA".
       iDestruct (ltl_dup with "H'") as "[H' H'']".
       iDestruct (stenning_ASending_A with "[$H' $HA]") as "[Hs Hl]".
-      iModUnIntro. iFrame. }
+      iModIntro. iFrame. }
     iDestruct "H2" as "[H1 H2]".
     iIntros "H'".
     iDestruct (ltl_dup with "H'") as "[H' H'']".
@@ -305,7 +305,7 @@ Section stenning_ex.
     iDestruct (stenning_A_or_B with "[H''']") as "[HA|HB]".
     { iLeft. iDestruct (ltl_now_prod_fst with "H'''") as (?) "H'". iExists _.  iFrame. }
     { iDestruct (stenning_ASending_A with "[$H' $HA]") as "[Hs Hl]".
-      iModUnIntro. iFrame. }
+      iModIntro. iFrame. }
     iDestruct (stenning_A_B with "[$H' $HB]") as "Hs".
     iEval (rewrite -ltl_next_eventually).
     iModIntro.
@@ -342,7 +342,7 @@ Section stenning_ex.
         iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'. simplify_eq.
       - rewrite -ltl_next_eventually. iDestruct (stenning_A_advance with "[$Hl $Hs]") as "Hs".
         iModIntro. iMod (stenning_disjoint_A with "Hs") as "[Hs Hl]".
-        iModUnIntro. iFrame. }
+        iModIntro. iFrame. }
     iDestruct "H" as "[H' IH]".
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
@@ -360,9 +360,9 @@ Section stenning_ex.
       + iEval (rewrite -ltl_next_eventually).
         iModIntro.
         iDestruct ("IH" with "Hs") as ">Hs".
-        iModUnIntro. done.
+        iModIntro. done.
       + iEval (rewrite -ltl_next_eventually).
-        iModIntro. iModUnIntro. done.
+        iModIntro. iModIntro. done.
   Qed.
 
   Lemma stenning_A_always_send i :
@@ -372,7 +372,7 @@ Section stenning_ex.
     iIntros "[#Hm Hs]".
     iMod (stenning_A_send with "Hs") as "[Hs Hl]".
     iApply (ltl_always_intro with "[] [Hs Hl]"); last first.
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iIntros "!> >[Hs Hl]".
     iDestruct (stenning_ASending_A with "[$Hs Hl]") as "[Hl' Hs]".
     { iApply ltl_now_label_prod_fst. by iExists _. }
@@ -402,15 +402,15 @@ Section stenning_ex.
     iIntros "!> [Hl|[_ IH]] Hs".
     { iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
       iDestruct (stenning_AReceiving_A with "[$Hs $Hl]") as (m) "[(?&?&?)|(?&?&?)]".
-      - iModUnIntro. iExists m. iFrame.
-      - iModUnIntro. iExists m. iFrame. }
+      - iModIntro. iExists m. iFrame.
+      - iModIntro. iExists m. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
     { iLeft. iDestruct (ltl_now_prod_fst with "Hs'") as (?) "Hs'". iFrame. }
     - iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
       iDestruct (stenning_AReceiving_A with "[$Hs $HA]") as (m) "[(?&?&?)|(?&?&?)]".
-      + iModUnIntro. iExists m. iFrame.
-      + iModUnIntro. iExists m. iFrame.
+      + iModIntro. iExists m. iFrame.
+      + iModIntro. iExists m. iFrame.
     - iDestruct (stenning_A_B with "[$Hs $HB]") as "H'".
       iEval (rewrite -ltl_next_eventually). iModIntro. by iApply "IH".
   Qed.
@@ -423,7 +423,7 @@ Section stenning_ex.
     iIntros "[#Hm Hs]".
     iMod (stenning_A_try_recv with "Hs") as "[%m [Hs Hl]]".
     iApply (ltl_always_intro with "[] [Hs Hl]"); last first.
-    { iModUnIntro. iFrame. }
+    { iModIntro. iFrame. }
     iIntros "!> >[%m' [Hs Hl]]".
     iDestruct (stenning_AReceiving_A with "[$Hs Hl]") as (m'') "[H1|H2]".
     { iApply ltl_now_label_prod_fst. by iExists _. }
@@ -463,11 +463,11 @@ Section stenning_ex.
   Proof.
     iIntros "#H".
     iDestruct (stenning_B_always_try_recv with "[H]") as "#HB".
-    { iModIntro. iMod "H". iModUnIntro. iExists _. iFrame. }
+    { iModIntro. iMod "H". iModIntro. iExists _. iFrame. }
     iDestruct (fair_net _ (λ m, m = i) with "[H] HB") as "H'".
-    { iModIntro. iMod "H". iModUnIntro. iExists i. iFrame. eauto. }
+    { iModIntro. iMod "H". iModIntro. iExists i. iFrame. eauto. }
     iMod "H'" as (m ->) "H''".
-    iModUnIntro. done.
+    iModIntro. done.
   Qed.
 
   Lemma stenning_B_send i :
@@ -492,7 +492,7 @@ Section stenning_ex.
       { destruct stB.
         { iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
           iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
-          iModUnIntro. done. }
+          iModIntro. done. }
         iDestruct (ltl_dup with "Hl") as "[Hl Hl']".
         iDestruct (stenning_BReceiving_B with "[$Hs Hl]") as "H".
         { iApply ltl_now_label_prod_fst. by iExists _. }
@@ -506,7 +506,7 @@ Section stenning_ex.
           iEval (rewrite -ltl_next_eventually). iModIntro.
           iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
           iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
-          iModUnIntro. done.
+          iModIntro. done.
         + iDestruct "H" as (->) "[Hl Hs]".
           iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq'.
           simplify_eq. lia. }
@@ -581,7 +581,7 @@ Section stenning_ex.
             iEval (rewrite -ltl_next_eventually). iModIntro.
             iDestruct (stenning_disjoint_B with "Hs") as ">[Hs Hl]".
             iDestruct (stenning_BSending_B with "[$Hs $Hl]") as "[Hl Hs]".
-            iModUnIntro. done. }
+            iModIntro. done. }
       destruct stB.
       + iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
         iDestruct (stenning_A_or_B with "[Hs']") as "[HA|HB]".
@@ -647,15 +647,15 @@ Section stenning_ex.
     iDestruct (ltl_dup with "HA2") as "[HA2 HA3]".
     iDestruct (fair_net _ (λ m, m = i) A with "[HA1] [HA2]") as "Hfair"; last first.
     { iApply (stenning_A_eventually_advance with "[$HA3 Hfair]").
-      iMod "Hfair". iModUnIntro. iDestruct "Hfair" as (m ->) "Hfair". done. }
+      iMod "Hfair". iModIntro. iDestruct "Hfair" as (m ->) "Hfair". done. }
     { iDestruct (stenning_A_always_try_recv with "[$Hm $HA2]") as "#H".
-      iIntros "!>". iMod "H" as (m) "[_ H]". iModUnIntro. eauto. }
+      iIntros "!>". iMod "H" as (m) "[_ H]". iModIntro. eauto. }
     { iDestruct (stenning_A_always_send with "[$Hm $HA1]") as "#H".
       iDestruct (stenning_B_recv with "[H]") as "H'".
-      { iModIntro. iMod "H". iModUnIntro. iDestruct "H" as "[_ $]". }
+      { iModIntro. iMod "H". iModIntro. iDestruct "H" as "[_ $]". }
       iDestruct (stenning_B_send with "[Hm HA1] H'") as "#H''".
       { by iApply stenning_A_preserved. }
-      iIntros "!>". iMod "H''". iModUnIntro. iFrame. done. }
+      iIntros "!>". iMod "H''". iModIntro. iFrame. done. }
   Qed.
 
   Theorem stenning_live i :
@@ -669,7 +669,7 @@ Section stenning_ex.
     iIntros "[Hs Hl]".
     iDestruct (IHi with "[$Hs $Hl]") as ">Hs".
     iDestruct (stenning_A_advances with "Hs") as ">Hs".
-    iModUnIntro.
+    iModIntro.
     iFrame.
   Qed.
 
@@ -679,7 +679,7 @@ Section stenning_ex.
     iIntros "H".
     iDestruct (stenning_live i with "H") as ">H".
     iDestruct (stenning_A_send with "H") as ">[_ Hl]".
-    iModUnIntro. done.
+    iModIntro. done.
   Qed.
 
   Theorem stenning_live_meta
