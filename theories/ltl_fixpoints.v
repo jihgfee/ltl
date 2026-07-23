@@ -1,5 +1,6 @@
+(* From iris.proofmode Require Import coq_tactics reduction spec_patterns. *)
+From iris.proofmode Require Import modality_instances.
 From iris.bi Require Export fixpoint_mono.
-From iris.proofmode Require Import coq_tactics reduction spec_patterns.
 From ltl Require Export ltl.
 
 Section ltl_until.
@@ -436,14 +437,6 @@ Section ltl_until.
     rewrite ltl_eventually_next_comm. rewrite H. done.
   Qed.
 
-  Lemma envs_clear_delete_spatial_eq {PROP} i b (Δ : envs PROP) :
-    envs_clear_spatial (envs_delete false i b Δ) = envs_clear_spatial Δ.
-  Proof.
-    destruct b.
-    - by rewrite envs_delete_intuitionistic.
-    - by destruct Δ.
-  Qed.
-
   Global Instance elim_modal_until p P P' Q R R' :
     ltl_until_equiv P Q R →
     ltl_until_equiv P' Q R' →
@@ -522,8 +515,15 @@ Section ltl_until.
   Qed.
 
   Global Instance from_modal_until (P Q : tProp) :
-    @FromModal ltlI ltlI _ True%type modality_id (P ∪ Q) (P ∪ Q) (Q).
+    @FromModal ltlI ltlI _ True%type modality_id (P ∪ Q) (P ∪ Q) (Q) | 2.
   Proof. intros _. apply ltl_until_intro_now. Qed.
+
+  (* TODO: Prove these for until instead *)
+  Global Instance from_next_eventually (P : tProp) : FromNext (◊ P) (◊ ○ P).
+  Proof. rewrite /FromNext. by rewrite ltl_eventually_next_comm. Qed.
+
+  (* Global Instance from_next_eventually' (P : tProp) : FromNext' (◊ P) (◊ P) | 1. *)
+  (* Proof. rewrite /FromNext'. by rewrite -{2}ltl_next_eventually. Qed. *)
 
 End ltl_until.
 

@@ -1020,6 +1020,10 @@ Section ltl_axioms.
     eexists _. apply H.
   Qed.
 
+  Lemma ltl_next_pure P :
+    ○ ⌜P⌝ ⊣⊢@{tProp} ⌜P⌝.
+  Proof. unseal. rewrite ltl_next_unseal. done. Qed.
+
   (** Next Iter *)
 
   Lemma ltl_next_iter_mono_strong n (P Q : tProp) :
@@ -1299,6 +1303,19 @@ Section ltl_proofmode.
     apply ltl_next_mono. eauto.
   Qed.
 
+  Global Instance ltl_next_combine (P Q : tProp) :
+    CombineSepAs (○ P) (○ Q) (○ (P ∧ Q)).
+  Proof. by rewrite /CombineSepAs bi_sep_and ltl_next_and. Qed.
+
+  Class FromNext (P Q : tProp) :=
+    from_next : ○ P ⊢ Q.
+  Global Arguments FromNext _%I _%I : simpl never.
+  Global Arguments from_next _%I _%I {_}.
+  Global Hint Mode FromNext - ! : typeclass_instances.
+
+  Global Instance from_next_next (P : tProp) : FromNext P (○ P).
+  Proof. done. Qed.
+
   Lemma modality_next_mixin : modality_mixin (ltl_next)
     (MIEnvTransform (IntoNext true)) (MIEnvTransform (IntoNext false)).
   Proof.
@@ -1314,13 +1331,10 @@ Section ltl_proofmode.
     Unshelve. all: done.
   Qed.
   Definition modality_next := Modality (@ltl_next S L Rel) modality_next_mixin.
-  Global Instance from_modal_next (P : tProp) :
-    @FromModal ltlI ltlI _ True%type modality_next (○ P) (○ P) (P).
+  Global Instance from_modal_next (P Q : tProp) :
+    FromNext P Q →
+    @FromModal ltlI ltlI _ True%type modality_next Q Q P | 1.
   Proof. rewrite /FromModal /=. done. Qed.
-
-  Global Instance ltl_next_combine (P Q : tProp) :
-    CombineSepAs (○ P) (○ Q) (○ (P ∧ Q)).
-  Proof. by rewrite /CombineSepAs bi_sep_and ltl_next_and. Qed.
 
   Global Instance into_wand_next p (P Q R : tProp) :
     IntoWand p p R P Q → IntoWand p p (○ R)%I (○ P)%I (○ Q)%I.
@@ -1337,4 +1351,13 @@ Section ltl_proofmode.
       iIntros "[HPQ HP]". by iApply "HPQ".
   Qed.
 
+  (* Class FromNext' (P Q : tProp) := *)
+  (*   from_next' : ○ P ⊢ Q. *)
+  (* Global Arguments FromNext' _%I _%I : simpl never. *)
+  (* Global Arguments from_next' _%I _%I {_}. *)
+  (* Global Hint Mode FromNext' - ! : typeclass_instances. *)
+
 End ltl_proofmode.
+
+(* Tactic Notation "iNext" := iApply from_next'; iModIntro. *)
+

@@ -210,12 +210,10 @@ Section simple_ex.
   Lemma step i : ↓s i ⊢ ○ ↓s (i+1) : tProp.
   Proof.
     iIntros "H".
-    assert (∃ l s', steps i l s') as Hsteps.
-    { eexists _, _. constructor. }
-    iDestruct (trace_steps with "H") as (l s' Hsteps') "[Hl Hs]"; [done|].
-    clear Hsteps.
-    inversion Hsteps'; simplify_eq.
-    iFrame. 
+    iDestruct (trace_steps_det with "H") as "[Hl Hs]".
+    { intros. by inversion H; inversion H0; simplify_eq. }
+    { econstructor. }
+    done.
   Qed.
 
   Lemma eventually_n (n:nat) : ↓s 0 ⊢ ◊ ↓s n : tProp.
@@ -263,10 +261,8 @@ Section advanced_ex.
     ↓s (i,b) ⊢ ↓l b ∧ ○ ↓s (i+1,negb b) ∨ ↓l (negb b) ∧ ○ (↓s (i,b)) : tProp.
   Proof.
     iIntros "H".
-    assert (∃ l s', steps' (i,b) l s') as Hsteps.
-    { eexists _, _. constructor. }
-    iDestruct (trace_steps with "H") as (l s' Hsteps') "[Hl Hs]"; [done|].
-    clear Hsteps.
+    iDestruct (trace_steps with "H") as (l s' Hsteps') "[Hl Hs]";
+      [by eexists _, _; constructor|].
     inversion Hsteps'; simplify_eq.
     - iLeft. iFrame.
     - iRight. iFrame.

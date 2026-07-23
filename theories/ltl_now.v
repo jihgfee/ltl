@@ -235,13 +235,36 @@ Section ltl_now_state_label_lemmas.
         Unshelve. all: by inversion tr_wf.
   Qed.
 
-  Lemma trace_steps_det `{HRel: LTL S L Rel} s l :
+  Lemma trace_steps_det `{HRel: LTL S L Rel} (s:S) l s' :
+    (∀ s l1 l2 s1 s2, Rel s l1 s1 → Rel s l2 s2  → l1 = l2 ∧ s1 = s2) →
+    Rel s l s' →
+    ↓s s ⊢ ↓l l ∧ ○ ↓s s' : tProp.
+  Proof.
+    iIntros (Hdet Hred) "Hs".
+    iDestruct (trace_steps with "Hs") as (l' s'' HRel') "[Hl' Hs']";
+      [by eexists _, _|].
+    specialize (Hdet _ _ _ _ _ Hred HRel'). destruct Hdet. simplify_eq.
+    iFrame.
+  Qed.
+
+  Lemma trace_steps_label `{HRel: LTL S L Rel} s l :
     reducible s →
     ↓s s ∧ ↓l l ⊢ ∃ (s':S), ⌜Rel s l s'⌝ ∧ ○ ↓s s' : tProp.
   Proof.
     iIntros (Hred) "[Hs Hl]".
     iDestruct (trace_steps with "Hs") as (l' s' HRel') "[Hl' Hs']"; [done|].
     iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %->. iExists _. iFrame. done.
+  Qed.
+
+  Lemma trace_steps_label_det `{HRel: LTL S L Rel} s l s' :
+    (∀ s l s1 s2, Rel s l s1 → Rel s l s2  → s1 = s2) →
+    Rel s l s' →
+    ↓s s ∧ ↓l l ⊢ ○ ↓s s' : tProp.
+  Proof.
+    iIntros (Hdet Hred) "[Hs Hl]".
+    iDestruct (trace_steps_label with "[$Hs $Hl]") as (s'' HRel') "Hs'";
+      [by eexists _, _|].
+    specialize (Hdet _ _ _ _ Hred HRel'). subst. done.
   Qed.
 
   Lemma ltl_st P : (∀ osl, P osl → is_Some osl) → ↓ P ⊢ ∃ s, ↓s s : tProp.
