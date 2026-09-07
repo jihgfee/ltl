@@ -25,6 +25,7 @@ theories/ltl_now.v
 theories/ltl_adequacy.v
 theories/classical.v
 theories/examples/examples.v
+theories/examples/fair_sched.v
 theories/examples/stenning.v
 theories/examples/parity.v
 theories/examples/petri_nets.v
