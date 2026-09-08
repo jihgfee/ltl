@@ -3,6 +3,24 @@ From ltl Require Import ltl ltl_fixpoints ltl_now ltl_adequacy classical.
 Import tProp.
 
 Section parity.
+  Context (L : Set).
+  Context (Q : Set).
+  Context (RQ : Q → L → Q → Prop).
+  Context (M : Set).
+  Context (RM : M → L → M → Prop).
+  Context (Ω : Q → nat).
+
+  Inductive R : (Q*M) → L → (Q*M) → Prop :=
+  | R_step q q' l s s' : RQ q l q' → RM s l s' → R (q,s) l (q',s').
+
+  Notation tProp := (tProp (Q*M) L R).
+
+  Definition parity : tProp := (∃ x, ⌜Nat.even x⌝ ∧ (□ ◊ ↓fs (Ω ∘ fst) x) ∧
+                                    ∀ y, (□ ◊ (↓fs (Ω ∘ fst) y)) → ⌜y <= x⌝)%I.
+
+End parity.
+
+Module parity_example.
 
   Inductive L :=
   | a
@@ -35,8 +53,7 @@ Section parity.
   | s1_b : RM s1 b s0
   | s2_b : RM s2 b s1.
 
-  Inductive R : (Q*M) → L → (Q*M) → Prop :=
-  | R_step q q' l s s' : RQ q l q' → RM s l s' → R (q,s) l (q',s').
+  Definition R := R L Q RQ M RM.
 
   Notation tProp := (tProp (Q*M) L R).
 
@@ -255,8 +272,7 @@ Section parity.
   Qed.
       
   Theorem parity_theorem :
-    ↓s (q0,s0) ⊢@{tProp} ∃ x, ⌜Nat.even x⌝ ∧ (□ ◊ ↓fs (Ω ∘ fst) x) ∧
-                              ∀ y, (□ ◊ (↓fs (Ω ∘ fst) y)) → ⌜y <= x⌝.
+    ↓s (q0,s0) ⊢@{tProp} parity L Q RQ M RM Ω.
   Proof.
     iIntros "Hs".
     iExists 2.
@@ -288,4 +304,4 @@ Section parity.
       destruct q; simpl in *; lia.
   Qed.
         
-End parity.
+End parity_example.
