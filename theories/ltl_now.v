@@ -328,7 +328,7 @@ Section ltl_now_state_label_lemmas.
     iIntros (Hback HPQ) "Hs".
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
     iDestruct (ltl_lbl_state with "Hs'") as (l) "Hl".
-    { apply Hback. }
+    { apply Hback. }    
     iApply (trace_steps_label_rel with "[$Hs $Hl]").
     intros. by eapply HPQ.
   Qed.

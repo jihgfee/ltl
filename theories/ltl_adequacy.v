@@ -79,24 +79,6 @@ Section ltl_adequacy.
     done.
   Qed.
 
-  Lemma ltl_eventually_next_equiv (P : tProp) :
-    (◊ P)%I ≡ (∃ n : nat, ltl_next_iter n P)%I.
-  Proof.
-    iSplit.
-    - iApply ltl_eventually_ind.
-      { iIntros "HP". by iExists 0. }
-      iIntros "[_ IH]".
-      rewrite ltl_next_exists.
-      iDestruct "IH" as (n) "IH".
-      by iExists (Datatypes.S n).
-    - iDestruct 1 as (n) "H".
-      iInduction n as [|n Hn].
-      { by iModIntro. }
-      iApply ltl_next_eventually.
-      simpl. iModIntro.
-      by iApply "Hn".
-  Qed.
-
   Lemma ltl_eventually_adequate (P : tProp) tr :
     (◊ P)%I tr ≡ ∃ n, P (wf_after n tr).
   Proof.

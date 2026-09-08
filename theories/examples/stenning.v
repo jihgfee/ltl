@@ -2,7 +2,7 @@ From ltl Require Import ltl ltl_fixpoints ltl_now ltl_adequacy classical.
 
 Import tProp.
 
-Section stenning_ex.
+Module stenning_example.
 
   Inductive actor := A | B.
 
@@ -692,4 +692,4 @@ Section stenning_ex.
     naive_solver.
   Qed.
 
-End stenning_ex.
+End stenning_example.

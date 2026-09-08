@@ -34,7 +34,7 @@ Section ltl_until.
 
   Notation "P ∪ Q" := (ltl_until P Q%I) : bi_scope.
   Notation "◊ P" := (ltl_until True P%I) (at level 20, right associativity) : bi_scope.
-
+  
   Lemma ltl_until_unfold (P Q : tProp) :
     (P ∪ Q)%I ≡ (Q ∨ P ∧ ○ (P ∪ Q))%I.
   Proof. rewrite ltl_until_unseal. by rewrite /ltl_until_def {1}least_fixpoint_unfold. Qed.
@@ -564,12 +564,17 @@ Section ltl_until.
       + iIntros "!>". by iApply HR.
   Qed.
 
+  Lemma ltl_false_until (P : tProp) :
+    P ∪ False ⊢ False.
+  Proof.
+    iApply ltl_until_ind.
+    iDestruct 1 as "[[]|H]".
+    rewrite ltl_false_next. iDestruct "H" as "(_&_&$)".
+  Qed.
+
   Lemma ltl_false_eventually :
     ◊ False ⊢ False.
-  Proof.
-    iApply ltl_eventually_ind; [done|].
-    rewrite ltl_false_next. iDestruct 1 as "[_ $]".
-  Qed.
+  Proof. iApply ltl_false_until. Qed.
 
   Global Instance from_modal_until (P Q : tProp) :
     @FromModal ltlI ltlI _ True%type modality_id (P ∪ Q) (P ∪ Q) (Q) | 2.
@@ -588,6 +593,38 @@ Section ltl_until.
   Global Instance into_eventually_P (P : tProp) :
     IntoUntil P True P | 10.
   Proof. rewrite /IntoUntil. by iIntros "HP !>". Qed.
+
+  Lemma ltl_eventually_next_equiv (P : tProp) :
+    (◊ P)%I ≡ (∃ n : nat, ltl_next_iter n P)%I.
+  Proof.
+    iSplit.
+    - iApply ltl_eventually_ind.
+      { iIntros "HP". by iExists 0. }
+      iIntros "[_ IH]".
+      rewrite ltl_next_exists.
+      iDestruct "IH" as (n) "IH".
+      by iExists (Datatypes.S n).
+    - iDestruct 1 as (n) "H".
+      iInduction n as [|n Hn].
+      { by iModIntro. }
+      iApply ltl_next_eventually.
+      simpl. iModIntro.
+      by iApply "Hn".
+  Qed.
+
+  Lemma ltl_eventually_exists {A} (Φ : A → tProp) :
+    (◊ ∃ x, Φ x) ⊣⊢@{tProp} ∃ x, ◊ Φ x.
+  Proof.
+    iSplit.
+    - iIntros "H". setoid_rewrite ltl_eventually_next_equiv.
+      iDestruct "H" as (n) "H". 
+      rewrite -ltl_iter_exists.
+      iDestruct "H" as (x) "H". 
+      iExists x, n. done.
+    - iIntros "H". setoid_rewrite ltl_eventually_next_equiv.
+      iDestruct "H" as (x n) "H". 
+      iExists n. rewrite -ltl_iter_exists. iExists x. done.
+  Qed.
 
 End ltl_until.
 

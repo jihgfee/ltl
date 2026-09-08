@@ -369,24 +369,6 @@ Section ltl_axioms.
     destruct tr as [[[]|]]; simpl in *; by apply HPQ.
   Qed.
 
-  Lemma ltl_always_next_unfold P :
-    (□ P = ∀ n, ○^n P)%I.
-  Proof. rewrite ltl_always_unseal. unseal. rewrite /ltl_always_def. unseal. done. Qed.
-
-  (* N□ *)
-  Lemma ltl_always_taut P :
-    (True ⊢ P) → (True ⊢ □ P).
-  Proof.
-    intros HP. rewrite ltl_always_next_unfold.
-    apply forall_intro.
-    intros n.
-    induction n.
-    { done. }
-    simpl.
-    apply ltl_next_taut'.
-    done.
-  Qed.
-
   Lemma ltl_next_mono_pre (P Q : tProp) :
     (P ⊢ Q) → (○ P ⊢ ○ Q).
   Proof.
@@ -414,6 +396,37 @@ Section ltl_axioms.
     done.
   Qed.
 
+  Lemma ltl_next_forall_1 {A} (P : A → tProp) :
+    (∀ x, ○ P x)%I ⊢ ○ ∀ x, P x.
+  Proof.
+    unseal.
+    constructor. intros tr Hnext. destruct tr as [[[]|]].
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
+    - simplify_eq. intros x. specialize (Hnext x).
+      simplify_eq. done.
+  Qed.
+
+  Lemma ltl_always_next_unfold P :
+    (□ P = ∀ n, ○^n P)%I.
+  Proof. rewrite ltl_always_unseal. unseal. rewrite /ltl_always_def. unseal. done. Qed.
+
+  (* N□ *)
+  Lemma ltl_always_taut P :
+    (True ⊢ P) → (True ⊢ □ P).
+  Proof.
+    intros HP. rewrite ltl_always_next_unfold.
+    apply forall_intro.
+    intros n.
+    induction n.
+    { done. }
+    simpl.
+    apply ltl_next_taut'.
+    done.
+  Qed.
+
   (* K□ *)
   Lemma ltl_always_mono_strong_pre (P Q : tProp) :
     □ (P → Q) ⊢ □ P → □ Q.
@@ -426,19 +439,6 @@ Section ltl_axioms.
     { etrans; [apply and_elim_r|]. apply (forall_elim n). }
     apply impl_elim_l'.
     apply ltl_next_iter_mono_strong_pre.
-  Qed.
-
-  Lemma ltl_next_forall_1 {A} (P : A → tProp) :
-    (∀ x, ○ P x)%I ⊢ ○ ∀ x, P x.
-  Proof.
-    unseal.
-    constructor. intros tr Hnext. destruct tr as [[[]|]].
-    - simplify_eq. intros x. specialize (Hnext x).
-      simplify_eq. done.
-    - simplify_eq. intros x. specialize (Hnext x).
-      simplify_eq. done.
-    - simplify_eq. intros x. specialize (Hnext x).
-      simplify_eq. done.
   Qed.
 
 End ltl_axioms.
@@ -928,10 +928,6 @@ Section ltl_derived_rules.
     iApply "H'". done.
   Qed.
 
-  Lemma ltl_always_next (P : tProp) :
-    □ P ⊢ ○ □ P.
-  Proof. rewrite {1}ltl_always_unfold. apply bi.and_elim_r. Qed.
-
   Lemma ltl_next_and (P Q : tProp) : ○ P ∧ ○ Q ⊣⊢ ○ (P ∧ Q).
   Proof.
     apply (anti_symm _).
@@ -965,6 +961,10 @@ Section ltl_derived_rules.
       + apply ltl_next_mono. apply bi.or_intro_r.
     - apply ltl_next_or_2.
   Qed.
+
+  Lemma ltl_always_next (P : tProp) :
+    □ P ⊢ ○ □ P.
+  Proof. rewrite {1}ltl_always_unfold. apply bi.and_elim_r. Qed.
 
   Lemma ltl_always_next_comm_1 (P : tProp) :
     □ ○ P ⊢ ○ □ P.
@@ -1200,6 +1200,24 @@ Section ltl_proofmode.
       destruct b; by rewrite /bi_intuitionistically /bi_affinely !left_id in H. }
     rewrite H. intros HPQ.
     rewrite HPQ. specialize (H true). simpl in *. rewrite -H. done.
+  Qed.
+
+  (* TODO: Move this *)
+  Lemma ltl_iter_exists {A} n (Φ : A → tProp) :
+    (∃ x, ○^n Φ x)%I ⊣⊢@{tProp} ○^n ∃ x, Φ x.
+  Proof.
+    iSplit.
+    - iIntros "HP". 
+      iDestruct "HP" as (x) "HP".
+      iInduction n as [|n IHn].
+      { iExists x. done. }
+      simpl. iModIntro. iDestruct ("IHn" with "HP") as "HP".
+      done.
+    - iIntros "HP".
+      iInduction n as [|n IHn].
+      { done. }
+      simpl. rewrite -ltl_next_exists. iModIntro. iApply "IHn".
+      done.
   Qed.
 
 End ltl_proofmode.
