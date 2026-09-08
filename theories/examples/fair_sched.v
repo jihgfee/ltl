@@ -1,7 +1,6 @@
-From ltl Require Import ltl ltl_fixpoints ltl_now classical ltl_adequacy.
+From ltl Require Import ltl ltl_fixpoints ltl_now.
 
 Import tProp.
-
 
 Section fair_sched.
   Context (label : Set).
@@ -78,7 +77,7 @@ Section fair_sched.
 
 End fair_sched.
 
-Section fair_coin.
+Module fair_coin.
 
   Definition state : Set := nat.
   Definition label : Set := bool.
@@ -92,12 +91,13 @@ Section fair_coin.
 
 End fair_coin.
 
-Section fair_inf.
+Module fair_inf.
 
-  Definition inf_state : Set := nat.
-  Definition inf_label : Set := nat.
+  Definition state : Set := nat.
+  Definition label : Set := nat.
+  Definition f := (id : nat → nat).
 
-  Notation tProp := (tProp state inf_label (steps inf_label id)).
+  Notation tProp := (tProp state label (steps label f)).
 
   Lemma eventually_n_inf n :
     ↓s 0 ⊢ ◊ ↓s n : tProp.
