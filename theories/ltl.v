@@ -5,7 +5,6 @@ From iris.proofmode Require Export proofmode.
 Definition tProp S L R := wf_trace S L R → Prop.
 
 Bind Scope bi_scope with tProp.
-Bind Scope bi_scope with trace.
 
 Section tProp.
   Context {S L : Type}.
@@ -221,7 +220,6 @@ Section ltl_constructors.
 
   Notation tProp := (tProp S L Rel).
 
-  (* LTL Operators *)
   Definition ltl_next_def (P : tProp) : tProp := λ tr, P (wf_tail tr).
   Definition ltl_next_aux : seal (@ltl_next_def).
   Proof. by eexists. Qed.
@@ -279,24 +277,6 @@ Section ltl_axioms.
     (ltl_exist (λ x, .. (ltl_exist (λ y, P%I)) ..)) : bi_scope.
   Notation "□ P" := (ltl_always P) : bi_scope.
 
-  Lemma ltl_next_iter_sum n m (P : tProp) :
-    (○^(n+m) P)%I ≡ (○^n (○^ m P))%I.
-  Proof.
-    revert m P.
-    induction n; intros m P; [done|].
-    replace (Datatypes.S n + m) with (n + (Datatypes.S m)) by lia.
-    rewrite IHn.
-    replace (Datatypes.S n) with (n + 1) by lia.
-    rewrite IHn.
-    clear IHn.
-    done.
-  Qed.
-
-  Lemma ltl_next_iter_S n (P : tProp) :
-    (○^(Datatypes.S n) P)%I ≡ (○^n (○ P))%I.
-  Proof. replace (Datatypes.S n) with (n + 1) by lia.
-         rewrite ltl_next_iter_sum. done. Qed.
-
   Instance ne_proper (f : tProp → tProp) `{!Proper ((≡) ==> (≡)) f} : NonExpansive f.
   Proof.
     constructor. intros.
@@ -311,42 +291,7 @@ Section ltl_axioms.
     destruct tr as [[[]|]]; split; intros; simplify_eq; simpl in *; by apply H.
   Qed.
 
-  Global Instance ltl_next_iter_proper n :
-    Proper ((≡) ==> (≡)) (@ltl_next_iter S L Rel n).
-  Proof.
-    intros P Q Heq.
-    induction n.
-    { simpl. done. } 
-    simpl. f_equiv. done.
-  Qed.
-
-  Lemma ltl_always_ne : NonExpansive (@ltl_always S L Rel).
-  Proof.
-    apply ne_proper. unseal. rewrite /ltl_always_def. unseal.
-    constructor.
-    intros.
-    constructor.
-    + intros Hx n.
-      specialize (Hx n).
-      revert x y H Hx.
-      induction n; intros x y H Hx.
-      { simpl. apply H. done. }
-      apply ltl_next_iter_S.
-      apply (IHn (○ x)%I (○ y)%I).
-      { f_equiv. done. }
-      apply ltl_next_iter_S.
-      done.
-    + intros Hx n.
-      specialize (Hx n).
-      revert x y H Hx.
-      induction n; intros x y H Hx.
-      { simpl. apply H. done. }
-      apply ltl_next_iter_S.
-      apply (IHn (○ x)%I (○ y)%I).
-      { f_equiv. done. }
-      apply ltl_next_iter_S.
-      done.
-  Qed.
+  (** Next *)
 
   (* N○*)
   Lemma ltl_next_taut' (P : tProp) :
@@ -407,6 +352,63 @@ Section ltl_axioms.
       simplify_eq. done.
     - simplify_eq. intros x. specialize (Hnext x).
       simplify_eq. done.
+  Qed.
+
+  (** Next Iter *)
+
+  Global Instance ltl_next_iter_proper n :
+    Proper ((≡) ==> (≡)) (@ltl_next_iter S L Rel n).
+  Proof.
+    intros P Q Heq.
+    induction n.
+    { simpl. done. } 
+    simpl. f_equiv. done.
+  Qed.
+
+  Lemma ltl_next_iter_sum n m (P : tProp) :
+    (○^(n+m) P)%I ≡ (○^n (○^ m P))%I.
+  Proof.
+    revert m P.
+    induction n; intros m P; [done|].
+    replace (Datatypes.S n + m) with (n + (Datatypes.S m)) by lia.
+    rewrite IHn.
+    replace (Datatypes.S n) with (n + 1) by lia.
+    rewrite IHn.
+    done.
+  Qed.
+
+  Lemma ltl_next_iter_S n (P : tProp) :
+    (○^(Datatypes.S n) P)%I ≡ (○^n (○ P))%I.
+  Proof. replace (Datatypes.S n) with (n + 1) by lia. by rewrite ltl_next_iter_sum. Qed.
+
+  (** Always *)
+
+  Lemma ltl_always_ne : NonExpansive (@ltl_always S L Rel).
+  Proof.
+    apply ne_proper. unseal. rewrite /ltl_always_def. unseal.
+    constructor.
+    intros.
+    constructor.
+    + intros Hx n.
+      specialize (Hx n).
+      revert x y H Hx.
+      induction n; intros x y H Hx.
+      { simpl. apply H. done. }
+      apply ltl_next_iter_S.
+      apply (IHn (○ x)%I (○ y)%I).
+      { f_equiv. done. }
+      apply ltl_next_iter_S.
+      done.
+    + intros Hx n.
+      specialize (Hx n).
+      revert x y H Hx.
+      induction n; intros x y H Hx.
+      { simpl. apply H. done. }
+      apply ltl_next_iter_S.
+      apply (IHn (○ x)%I (○ y)%I).
+      { f_equiv. done. }
+      apply ltl_next_iter_S.
+      done.
   Qed.
 
   Lemma ltl_always_next_unfold P :
@@ -771,9 +773,10 @@ Section ltl_axioms.
 
   Lemma bi_intuitionistically_always (P : tProp) :
     @bi_intuitionistically (@ltlI S L Rel) P ≡ ltl_always P.
-  Proof. rewrite /bi_intuitionistically.
-         rewrite /bi_affinely.
-         rewrite left_id. done.
+  Proof.
+    rewrite /bi_intuitionistically.
+    rewrite /bi_affinely.
+    rewrite left_id. done.
   Qed.
 
   Lemma impl_intro_l (P Q : tProp) :
