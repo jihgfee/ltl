@@ -41,7 +41,7 @@ End petri_nets.
 Arguments R {_ _ _ _ _ _} _ _ _.
 Arguments enabled {_ _ _ _ _ _} _ _.
 
-Section example.
+Module petri_nets_example.
 
   (*
     Model:
@@ -429,4 +429,4 @@ Section example.
     eexists _. split ; [set_solver|lia].
   Qed.
 
-End example.
+End petri_nets_example.
