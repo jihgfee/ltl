@@ -1,6 +1,6 @@
-# MoTeL: Extensible Modal Framework for Interactive Proofs in Linear Temporal Logic
+# MoTeL: Modal Temporal Logic Proofmode
 
-MoTeL is a proofmode interface for working with linear temporal logic in Rocq, built on top of the MoSeL proofmode interface for separation logic, most notably used for the Iris logic: https://iris-project.org/ .
+MoTeL is a proofmode interface for working with modal temporal logic in Rocq, built on top of the MoSeL proofmode interface for separation logic, most notably used for the Iris logic: https://iris-project.org/ .
 
 ## Installation Instructions
 
@@ -29,7 +29,7 @@ It can be installed following the build instructions of Iris.
 
 ## Overview
 
-The proofmode interface can be instantiated by giving a linear transition system (LTS) model by providing a notion of state (S), label (L), and transition relation (R).
+The proofmode interface can be instantiated by giving a labelled transition system (LTS) model by providing a notion of state (S), label (L), and transition relation (R).
 
 The traces are possibly-finite, and come with `head` and `tail` functions:
 
