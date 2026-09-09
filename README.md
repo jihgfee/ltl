@@ -44,7 +44,8 @@ The remaining conventional primitives of LTL, such as `□ P` (globally), `◊ P
 We additionally have `↓s x` and `↓l x` variants of `↓ p` that asserts the current state and label, respectively.
 
 The proofmode provides infrastructure for proving model-level axioms, that reflect the LTS transition relation in LTL.
-For example, given a model:
+
+To give an example, consider the following model (mechanised via MoTeL in [./theories/examples/fair_coin.v](./theories/examples/fair_coin.v)):
 
 ```
   S := bool.
@@ -118,6 +119,3 @@ The proofmode also inherits MoSeL's `iModIntro` tactic, that here introduce `○
 ```
 
 We can finally introduce `◊` via `iModIntro`, concluding the proof.
-
-The above proof can be found in
-[./theories/examples.v](./theories/examples.v)
