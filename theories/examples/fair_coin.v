@@ -43,7 +43,7 @@ Module fair_coin_example.
     iIntros "!> [Hl|[Hl IH]] Hs".
     { iModIntro. iFrame. }
     iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
-    iDestruct (step with "Hs") as "[[Hl' Hs]|[Hl' Hs]]".
+    iDestruct (step with "Hs'") as "[[Hl' Hs']|[Hl' Hs']]".
     { iModIntro. iFrame. }
     iEval (rewrite -ltl_next_eventually). iModIntro.
     iApply "IH". iFrame.
@@ -56,7 +56,7 @@ Module fair_coin_example.
     iDestruct (eventual_step with "[$Hfair $Hs]") as "Hsl".
     iMod "Hsl" as "[Hs Hl]".
     iDestruct (step_succ with "[$Hs $Hl]") as "Hs".
-    iModIntro. iModIntro. done.
+    iModIntro. iModIntro. iApply "Hs".
   Qed.
 
   Theorem theorem :
@@ -83,82 +83,96 @@ End fair_coin_example.
 
 Module fair_coin_increment_example.
 
-  Definition state : Set := nat * bool.
+  Definition state : Set := nat.
   Definition label : Set := bool.
   Inductive steps : state → label → state → Prop :=
-  | my_step_succ i b : steps (i,b) b (i+1,negb b)
-  | my_step_fail i b : steps (i,b) (negb b) (i,b).
+  | my_step_succ i : steps i (Nat.even i) (i+1)
+  | my_step_fail i : steps i (negb (Nat.even i)) i.
 
   Notation tProp := (tProp state label steps).
 
   Axiom fair : ∀ (b:bool), ⊢ ◊ ↓l b : tProp.
 
-  Lemma step_b b i :
-    ↓s (i,b) ⊢ ↓l b ∧ ○ ↓s (i+1,negb b) ∨ ↓l (negb b) ∧ ○ (↓s (i,b)) : tProp.
+  Lemma step i :
+    ↓s i ⊢ ↓l (Nat.even i) ∧ ○ ↓s (i+1) ∨ ↓l (negb (Nat.even i)) ∧ ○ (↓s i) : tProp.
   Proof.
     iIntros "H".
-    iDestruct (trace_steps with "H") as (l s Hsteps) "[Hl Hs]";
-      [by eexists _, _; constructor|].
+    iDestruct (trace_steps with "H") as (l s Hsteps) "[Hl Hs]".
+    { by eexists _, _; constructor. }
     inversion Hsteps; simplify_eq.
     - iLeft. iFrame.
     - iRight. iFrame.
   Qed.
 
-  Lemma eventually_incr i b :
-    ↓s (i,b) ⊢ ◊ ↓s (i+1,negb b) : tProp.
+  Lemma step_succ_alt i :
+    ↓s i ∧ ↓l (Nat.even i) ⊢ ○ ↓s (i+1) : tProp.
+  Proof.
+    iIntros "Hsl".
+    iDestruct (trace_steps_label with "Hsl") as (s Hsteps) "Hs".
+    inversion Hsteps; simplify_eq.
+    - done.
+    - by destruct (Nat.even s).
+  Qed.
+
+  Lemma step_succ i :
+    ↓s i ∧ ↓l (Nat.even i) ⊢ ○ ↓s (i+1) : tProp.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct (step with "Hs") as "[[Hl' Hs]|[Hl' Hs]]".
+    - iFrame.
+    - iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq. by destruct (Nat.even i).
+  Qed.
+
+  Lemma eventually_step i :
+    ↓s i ⊢ ◊ (↓s i ∧ ↓l (Nat.even i)) : tProp.
+  Proof.
+    iDestruct (fair (Nat.even i)) as "-#Hl".
+    iApply (ltl_eventually_ind_strong with "[] Hl").
+    iIntros "!> [Hl|[Hl IH]] Hs".
+    { iModIntro. iFrame. }
+    iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
+    iDestruct (step with "Hs'") as "[[Hl' Hs']|[Hl' Hs']]".
+    { iModIntro. iFrame. }
+    iEval (rewrite -ltl_next_eventually). iModIntro.
+    iApply "IH". iFrame.
+  Qed.
+
+  Lemma eventually_incr i :
+    ↓s i ⊢ ◊ ↓s (i+1) : tProp.
   Proof.
     iIntros "Hs".
-    iAssert (↓s (i,b) ∪ ↓s (i+1,negb b))%I with "[Hs]" as "H"; last first.
-    { by iApply (ltl_until_mono_strong with "[] [] H"); eauto. }
-    iRevert "Hs".
-    iDestruct (fair b) as "-#Hfair".
-    iApply (ltl_eventually_ind_strong with "[] Hfair").
-    iIntros "!> [Hl|H]".
-    { iIntros "Hs".
-      iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
-      iDestruct (step_b with "Hs") as "[Hs|Hs]"; last first.
-      { iDestruct "Hs" as "[Hs Hs'']".
-        iDestruct (ltl_now_false with "Hl Hs") as "[]".
-        destruct b; intros [[[] []]|] HP HQ; by naive_solver. }
-      iDestruct "Hs" as "[_ Hs'']".
-      iApply ltl_until_intro_next. iFrame.
-      iModIntro. iApply ltl_until_intro_now. done. }
-    iDestruct "H" as "[Hl IH]".
-    iIntros "Hs".
-    iDestruct (ltl_dup with "Hs") as "[Hs Hs2]".
-    iDestruct (step_b with "Hs") as "[[Hl' Hs']|[Hl' Hs']]".
-    { iApply ltl_until_intro_next. iFrame. iModIntro.
-      iApply ltl_until_intro_now. by iApply (ltl_now_mono with "Hs'"). }
-    iApply ltl_until_intro_next. iFrame. iModIntro. by iApply "IH".
+    iMod (eventually_step with "Hs") as "Hsl".
+    iDestruct (step_succ with "Hsl") as "Hs".
+    iApply ltl_next_eventually.
+    iModIntro. iModIntro. iApply "Hs".
   Qed.
 
   Lemma eventually_n n :
-    ↓fs fst 0 ⊢ ◊ ↓fs fst n : tProp.
+    ↓s 0 ⊢ ◊ ↓s n : tProp.
   Proof.
     assert (∃ i j, i = 0 ∧ n-j = i ∧ n >= j) as (i&j&<-&H1&H2).
     { eexists _, n. split; [done|]. lia. }
     iInduction j as [|j IHj] forall (n i H1 H2).
     { simplify_eq. rewrite right_id. iIntros "H".
       by iApply ltl_eventually_intro_now. }
-    iIntros "Hi".
-    iDestruct (ltl_now_prod_fst with "Hi") as (b) "Hs".
+    iIntros "Hs".
     iDestruct (eventually_incr with "Hs") as "H'".
     iApply (ltl_eventually_ind_strong with "[] H'").
     iIntros "!> [H|(H3&H2)]".
     { iApply "IHj".
       { instantiate (1:=i+1). rewrite -H1. iPureIntro. lia. }
       { iPureIntro. lia. }
-      iDestruct "H" as "[$ _]". }
+      done. }
     by iApply ltl_next_eventually.
   Qed.
 
   Theorem eventually_n_meta
     (tr : wf_trace state label steps) i :
-    fst <$> (fst <$> wf_head tr) = Some 0 →
-    ∃ n, fst <$> (fst <$> wf_head (wf_after n tr)) = Some i.
+    fst <$> wf_head tr = Some 0 →
+    ∃ n, fst <$> (wf_head (wf_after n tr)) = Some i.
   Proof.
     pose proof (eventually_n i).
-    revert H. adequacy_unseal. naive_solver.
+    revert H. adequacy_unseal. setoid_rewrite option_fmap_id. naive_solver.
   Qed.
 
 End fair_coin_increment_example.

@@ -3,10 +3,10 @@ From ltl Require Import ltl ltl_fixpoints ltl_now.
 Import tProp.
 
 Section fair_sched.
+
+  Definition state := nat.
   Context (label : Set).
   Context (f : nat → label).
-
-  Notation state := nat.
 
   Inductive steps : state → label → state → Prop :=
   | my_step_succ i : steps i (f i) (i+1)
@@ -14,7 +14,7 @@ Section fair_sched.
 
   Notation tProp := (tProp state label steps).
 
-  Axiom advanced_fair : ∀ i, ⊢ ◊ ↓l i : tProp.
+  Axiom fair : ∀ i, ⊢ ◊ ↓l i : tProp.
 
   Lemma step i :
     ↓s i ⊢ ∃ l, ↓l l ∧
@@ -29,31 +29,45 @@ Section fair_sched.
     - iExists l. iFrame. iRight. iFrame. done.
   Qed.
 
+  Lemma step_succ_alt i :
+    ↓s i ∧ ↓l (f i) ⊢ ○ ↓s (i+1) : tProp.
+  Proof.
+    iIntros "Hsl".
+    iDestruct (trace_steps_label with "Hsl") as (s Hsteps) "Hs".
+    by inversion Hsteps; simplify_eq.
+  Qed.
+
+  Lemma step_succ i :
+    ↓s i ∧ ↓l (f i) ⊢ ○ ↓s (i+1) : tProp.
+  Proof.
+    iIntros "[Hs Hl]".
+    iDestruct (step with "Hs") as (l) "[Hl' [[-> Hs]|[%Hneq Hs]]]".
+    - iFrame.
+    - iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %Heq. subst. done.
+  Qed.
+
+  Lemma eventually_step i :
+    ↓s i ⊢ ◊ (↓s i ∧ ↓l (f i)) : tProp.
+  Proof.
+    iDestruct (fair (f i)) as "-#Hl".
+    iApply (ltl_eventually_ind_strong with "[] Hl").
+    iIntros "!> [Hl|[_ IH]] Hs".
+    { iModIntro. iFrame. }
+    iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
+    iDestruct (step with "Hs'") as (l) "[Hl [[-> Hs']|[Hl' Hs']]]".
+    { iModIntro. iFrame. }
+    iEval (rewrite -ltl_next_eventually). iModIntro.
+    iApply "IH". iFrame.
+  Qed.
+
   Lemma eventually_incr i :
     ↓s i ⊢ ◊ ↓s (i+1) : tProp.
   Proof.
     iIntros "Hs".
-    iAssert (↓s i ∪ ↓s (i+1))%I with "[Hs]" as "H"; last first.
-    { by iApply (ltl_until_mono_strong with "[] [] H"); eauto. }
-    iRevert "Hs".
-    iDestruct (advanced_fair (f i)) as "-#Hfair".
-    iApply (ltl_eventually_ind_strong with "[] Hfair").
-    iIntros "!> [Hl|H]".
-    { iIntros "Hs".
-      iDestruct (ltl_dup with "Hs") as "[Hs Hs']".
-      iDestruct (step with "Hs") as (l) "[Hl' Hstep]". 
-      iDestruct "Hstep" as "[[%Heq Hstep]|[%Hneq Hstep]]"; last first.
-      { iDestruct (ltl_now_lbl_agree with "Hl Hl'") as %<-. done. }
-      iApply ltl_until_intro_next. iFrame.
-      iModIntro. iApply ltl_until_intro_now. done. }
-    iDestruct "H" as "[Hl IH]".
-    iIntros "Hs".
-    iDestruct (ltl_dup with "Hs") as "[Hs Hs2]".
-    iDestruct (step with "Hs") as  (l) "[Hl' Hstep]".
-    iDestruct "Hstep" as "[[%Heq Hstep]|[%Hneq Hstep]]". 
-    { iApply ltl_until_intro_next. iFrame. iModIntro.
-      iApply ltl_until_intro_now. iFrame. }
-    iApply ltl_until_intro_next. iFrame. iModIntro. by iApply "IH".
+    iMod (eventually_step with "Hs") as "Hsl".
+    iDestruct (step_succ with "Hsl") as "Hs".
+    iApply ltl_next_eventually.
+    iModIntro. iModIntro. iApply "Hs".
   Qed.
 
   Lemma eventually_n n :
@@ -64,43 +78,39 @@ Section fair_sched.
     iInduction j as [|j IHj] forall (n i H1 H2).
     { simplify_eq. rewrite right_id. iIntros "H".
       by iApply ltl_eventually_intro_now. }
-    iIntros "Hi".
-    iDestruct (eventually_incr with "Hi") as "H'".
+    iIntros "Hs".
+    iDestruct (eventually_incr with "Hs") as "H'".
     iApply (ltl_eventually_ind_strong with "[] H'").
     iIntros "!> [H|(H3&H2)]".
     { iApply "IHj".
       { instantiate (1:=i+1). rewrite -H1. iPureIntro. lia. }
       { iPureIntro. lia. }
-      iFrame. }
+      done. }
     by iApply ltl_next_eventually.
   Qed.
 
 End fair_sched.
 
-Module fair_coin.
-
-  Definition state : Set := nat.
-  Definition label : Set := bool.
-  Definition f := Nat.even.
-
-  Notation tProp := (tProp state label (steps label f)).
+Module sequential.
 
   Lemma eventually_n_coin n :
-    ↓s 0 ⊢ ◊ ↓s n : tProp.
+    ↓s 0 ⊢ ◊ ↓s n : tProp nat () (steps () (λ _, ())).
+  Proof. apply eventually_n. Qed.
+
+End sequential.
+
+Module fair_coin.
+
+  Lemma eventually_n_coin n :
+    ↓s 0 ⊢ ◊ ↓s n : tProp nat bool (steps bool Nat.even).
   Proof. apply eventually_n. Qed.
 
 End fair_coin.
 
 Module fair_inf.
 
-  Definition state : Set := nat.
-  Definition label : Set := nat.
-  Definition f := (id : nat → nat).
-
-  Notation tProp := (tProp state label (steps label f)).
-
   Lemma eventually_n_inf n :
-    ↓s 0 ⊢ ◊ ↓s n : tProp.
+    ↓s 0 ⊢ ◊ ↓s n : tProp nat nat (steps nat id).
   Proof. apply eventually_n. Qed.
 
 End fair_inf.
