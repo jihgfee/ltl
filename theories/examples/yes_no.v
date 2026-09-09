@@ -11,7 +11,7 @@ Module yes_no_example.
   Notation tProp := (tProp state label steps).
 
   Lemma inf_live b :
-    ∞ ⊢@{tProp} □ ◊ is_live b.
+    ∞ ⊢@{tProp} □ is_live b.
   Proof.
     iApply inf_live_strong.
     intros. inversion H; [destruct b'|destruct b0]; destruct b; simplify_eq; eexists _; econstructor; lia.
@@ -36,9 +36,7 @@ Module yes_no_example.
   Proof.
     iIntros "[Hs Hl]".
     iDestruct (trace_steps_label with "[$Hs $Hl]") as (s' Hsteps') "Hs".
-    inversion Hsteps'; simplify_eq.
-    - done.
-    - by destruct b.
+    inversion Hsteps'; simplify_eq; [done|]. by destruct b.
   Qed.
 
   Theorem eventually_terminates (n:nat) :
@@ -56,7 +54,8 @@ Module yes_no_example.
     iDestruct ltl_terminates_dec as "[$|#H]".
     iApply "IHn". iClear "IHn".
     iDestruct (inf_live b with "H") as "#Hlive".
-    iDestruct (fair with "Hlive") as "-#Hsched".
+    iDestruct (fair with "[Hlive]") as "-#Hsched".
+    { by iIntros "!>!>". } 
     iRevert "Hs".
     iApply (ltl_eventually_ind_strong with "[] Hsched").
     iIntros "!> [Hl|[_ IH]] Hs".

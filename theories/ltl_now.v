@@ -611,13 +611,12 @@ Section ltl_now_termination_lemmas.
 
   Lemma inf_live b :
     (∀ s, ∃ s', Rel s b s') →
-    ∞ ⊢ (□ ◊ is_live b)%I.
+    ∞ ⊢ (□ is_live b)%I.
   Proof.
     iIntros (Hrel) "#H !>".
     rewrite /ltl_terminated. rewrite ltl_now_not.
     iDestruct (ltl_st with "H") as (s) "Hs".
     { intros. destruct osl; done. }
-    iModIntro.
     iApply (ltl_now_mono with "Hs").
     intros. simpl.
     destruct osl as [[]|]; simpl in *; simplify_eq; [|naive_solver].

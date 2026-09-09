@@ -99,13 +99,12 @@ Section classical.
 
   Lemma inf_live_strong b :
     (∀ s b' s', Rel s b' s' → ∃ s', Rel s b s') →
-    ∞ ⊢@{tProp} (□ ◊ is_live b)%I.
+    ∞ ⊢@{tProp} (□ is_live b)%I.
   Proof.
     iIntros (Hrel) "#H !>".
     rewrite /ltl_terminated. rewrite ltl_now_not.
     iDestruct (ltl_st with "H") as (s) "Hs".
     { intros. destruct osl; done. }
-    iModIntro.
     iAssert (⌜∃ b s', Rel s b s'⌝)%I as %(?&?&?).
     { assert (reducible Rel s ∨ ¬ reducible Rel s) as [(?&?&Hred)|Hred];
         [|iPureIntro; eexists _,_; eauto|].

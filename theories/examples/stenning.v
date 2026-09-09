@@ -1,7 +1,5 @@
 From ltl Require Import ltl ltl_fixpoints ltl_now ltl_adequacy classical.
 
-Import tProp.
-
 Module stenning_example.
 
   Inductive actor := A | B.
@@ -63,8 +61,10 @@ Module stenning_example.
 
   Notation tProp := (tProp stenning_state stenning_label stenning_trans).
 
-  Instance stenning_state_inhabited : Inhabited stenning_state := populate ((ASending, 0), (BSending, 0)).
-  Instance stenning_label_inhabited : Inhabited stenning_label := populate (A, Recv A None).
+  Instance stenning_state_inhabited : Inhabited stenning_state :=
+    populate ((ASending, 0), (BSending, 0)).
+  Instance stenning_label_inhabited : Inhabited stenning_label :=
+    populate (A, Recv A None).
 
   Lemma stenning_reducible s : reducible stenning_trans s.
   Proof.
@@ -460,15 +460,13 @@ Module stenning_example.
   Qed.
 
   Lemma stenning_B_send i :
-    ⊢
+    ⊢@{tProp}
     □ (∃ stA, ↓sA (stA,i)) →
     □ ◊ ↓l (B, Recv B $ Some (mAB i)) →
-    □ ◊ ↓l (B, Send (mBA i))
-    : tProp.
+    □ ◊ ↓l (B, Send (mBA i)).
   Proof.
     iIntros "#Hst #Hrecv". iModIntro.
-    iAssert (∃ stA : stenning_A_state, ↓sA (stA, i))%I as "Hst'"; [by done|].
-    iDestruct "Hst'" as (stA) "Hst'".
+    iAssert (∃ stA : stenning_A_state, ↓sA (stA, i))%I as (stA) "Hst'"; [by done|].
     iDestruct (stenning_safety_inv) as (j stA' stB) "[HstA HstB]".
     iDestruct (ltl_now_A_agree with "Hst' HstA") as %Heq.
     simplify_eq. iClear "Hst' HstA".
