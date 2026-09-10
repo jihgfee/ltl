@@ -22,13 +22,9 @@ End parity.
 
 Module parity_example.
 
-  Inductive L :=
-  | a
-  | b.
+  Inductive L := a | b.
 
-  Inductive Q :=
-  | q0
-  | q1.
+  Inductive Q := q0 | q1.
 
   Definition Ω (s:Q) : nat :=
     match s with
@@ -36,10 +32,7 @@ Module parity_example.
     | q1 => 2
     end.
 
-  Inductive M :=
-  | s0
-  | s1
-  | s2.
+  Inductive M := s0 | s1 | s2.
 
   Inductive RQ : Q → L → Q → Prop :=
   | q0_a : RQ q0 a q1
